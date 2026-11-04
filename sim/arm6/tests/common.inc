@@ -5,7 +5,10 @@
 @   success: write 0x0000600D to 0xF0000000
 @   failure: write the test id, the actual and the expected value to
 @            0xF0000004, 0xF0000008, 0xF000000C, then 0x00000BAD to 0xF0000000
-@ Each test file defines reset_entry and swi_entry.
+@ Each test file defines reset_entry and swi_entry. A test that takes interrupts
+@ sets USE_IRQ and/or USE_FIQ before including this file and defines irq_entry
+@ and/or fiq_entry. The interrupt lines are driven through 0xF0000010 (IRQ) and
+@ 0xF0000014 (FIQ): writing 0 releases the line, n > 0 asserts it n cycles later.
 
 	.syntax	unified
 	.arm
@@ -18,8 +21,16 @@ _start:
 	b	vec_unexpected		@ 0x0C prefetch abort
 	b	vec_unexpected		@ 0x10 data abort
 	b	vec_unexpected		@ 0x14 address exception
+	.ifdef	USE_IRQ
+	b	irq_entry		@ 0x18 IRQ
+	.else
 	b	vec_unexpected		@ 0x18 IRQ
+	.endif
+	.ifdef	USE_FIQ
+	b	fiq_entry		@ 0x1C FIQ
+	.else
 	b	vec_unexpected		@ 0x1C FIQ
+	.endif
 
 vec_undef:
 	ldr	r11, =0xDEAD0004
