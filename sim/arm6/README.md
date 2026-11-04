@@ -25,5 +25,6 @@ Linux or WSL2 with Verilator 5 and the ARM bare-metal binutils, e.g. on Ubuntu 2
 | `t_shift_carry` | a zero shift amount keeps C (#12): unrotated immediate, LSL #0, shift by a register holding 0 |
 | `t_shift_imm32` | immediate LSR #0 / ASR #0 mean #32 (#11), RRX, scaled register offsets |
 | `t_msr` | MSR field masks (#10), SPSR_flg, MSR immediate, banked SPSRs, User mode, SWI |
+| `t_unaligned` | unaligned LDR/SWP rotate the word by 8 × address[1:0] (big-endian halfword idiom), LDM and LDRB do not |
 | `t_regress` | shifter, carry and overflow, MUL/MLA, big-endian byte lanes, LDM/STM, SWP, BL, conditions, PC reads |
 | `repro/issue*` | the programs from issues #10, #11 and #12, unchanged |
