@@ -56,6 +56,17 @@ reset_entry:
 	SHIFT_CASE 20, "r1, asr r3", 0xFFFFFFFF, 0b1010
 	mov	r3, #36
 	SHIFT_CASE 21, "r1, ror r3", 0x18765432, 0b0000
+	mov	r3, #64				@ multiples of 32 above 32: LSL/LSR carry-out is 0
+	SHIFT_CASE 22, "r1, lsl r3", 0x00000000, 0b0100
+	SHIFT_CASE 23, "r1, lsr r3", 0x00000000, 0b0100
+	SHIFT_CASE 24, "r1, asr r3", 0xFFFFFFFF, 0b1010
+	SHIFT_CASE 25, "r1, ror r3", 0x87654321, 0b1010
+	b	1f
+	.ltorg
+1:
+	mov	r3, #224
+	SHIFT_CASE 26, "r1, lsl r3", 0x00000000, 0b0100
+	SHIFT_CASE 27, "r1, lsr r3", 0x00000000, 0b0100
 	b	1f
 	.ltorg
 1:

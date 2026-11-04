@@ -28,3 +28,18 @@ Linux or WSL2 with Verilator 5 and the ARM bare-metal binutils, e.g. on Ubuntu 2
 | `t_unaligned` | unaligned LDR/SWP rotate the word by 8 × address[1:0] (big-endian halfword idiom), LDM and LDRB do not |
 | `t_regress` | shifter, carry and overflow, MUL/MLA, big-endian byte lanes, LDM/STM, SWP, BL, conditions, PC reads |
 | `repro/issue*` | the programs from issues #10, #11 and #12, unchanged |
+
+## Differential fuzzing
+
+`fuzz.py` runs random programs on the RTL and on [Unicorn](https://www.unicorn-engine.org/)
+(ARM926 model) and compares r0-r12, r14, CPSR, SPSR and a 256-byte memory sandbox. Programs
+mix data processing (every shift form, conditions, flags), MUL/MLA, LDR/STR(B) in every
+addressing mode, LDM/STM, SWP, MRS/MSR and conditional branches, restricted to what ARMv3 and
+ARMv5 define the same way (no PC operands, no mode changes, aligned word accesses, no
+unpredictable register combinations, no PSR bits 27-8). A mismatch is reduced to a short
+program ending with the offending instruction. It runs little-endian (`-GBIGEND=0`), since
+Unicorn cannot run big-endian ARMv5 code; the directed tests cover the big-endian byte lanes.
+
+    python3 -m venv ~/fuzzenv && ~/fuzzenv/bin/pip install unicorn
+    ~/fuzzenv/bin/python fuzz.py -n 2000 -s 1 --out failures/   # programs, first seed
+    ~/fuzzenv/bin/python fuzz.py --rtl /path/to/ARM6 ...        # another copy of rtl/ARM6

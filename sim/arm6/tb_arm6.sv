@@ -11,6 +11,8 @@
 //
 //  Plusargs:  +IMAGE=<file.memh>  one 32-bit word per line, as seen on the bus
 //             +MAXCYC=<n>         clock cycle limit (default 200000)
+//             +DUMPADDR=<hex>     memory printed at the end (default 2000)
+//             +DUMPLEN=<n>        number of words printed (default 16)
 //  Every line printed by the bench starts with "TB " (parsed by run.sh).
 //============================================================================
 module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-endian (see P3DO.sv)
@@ -22,7 +24,7 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 	reg    [31:0] mem [0:16383];
 	reg    [31:0] res [0:3];
 	reg [8*256:1] image;
-	integer       i, maxcyc, cycles = 0;
+	integer       i, maxcyc, dumpaddr, dumplen, cycles = 0;
 	wire    [1:0] lane = adr[1:0] ^ {2{BIGEND}};
 
 	assign rdat = adr < 32'h00010000 ? mem[adr[15:2]] : 32'h00000000;
@@ -43,6 +45,8 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 	initial begin
 		if (!$value$plusargs("IMAGE=%s", image)) $fatal(1, "TB missing +IMAGE=<file.memh>");
 		if (!$value$plusargs("MAXCYC=%d", maxcyc)) maxcyc = 200000;
+		if (!$value$plusargs("DUMPADDR=%h", dumpaddr)) dumpaddr = 32'h2000;
+		if (!$value$plusargs("DUMPLEN=%d", dumplen)) dumplen = 16;
 		for (i = 0; i < 16384; i = i + 1) mem[i] = 32'h00000000;
 		for (i = 0; i < 4; i = i + 1) res[i] = 32'h00000000;
 		$readmemh(image, mem);
@@ -70,7 +74,7 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 					if (adr[3:2] == 2'd0) begin
 						$display("TB DONE marker=%08x id=%08x actual=%08x expected=%08x cycles=%0d", wdat, res[1], res[2], res[3], cycles);
 						$display("TB MARKER %08x", wdat);
-						for (i = 0; i < 16; i = i + 1) $display("TB DUMP %0d %08x", i, mem[14'h0800 + i]);
+						for (i = 0; i < dumplen; i = i + 1) $display("TB DUMP %0d %08x", i, mem[(dumpaddr >> 2) + i]);
 						$finish;
 					end
 				end else if (adr < 32'h00010000) begin
