@@ -38,7 +38,8 @@ package ARM6_PKG;
 		SHFT_CONST = 3'b001, 
 		SHFT_REG   = 3'b010, 
 		SHFT_ROT   = 3'b011,
-		SHFT_LSL2  = 3'b100 
+		SHFT_LSL2  = 3'b100,
+		SHFT_BROT  = 3'b101 	//word load data rotated right by 8*address[1:0]
 	} ShiftCtrl_t;
 
 	typedef enum bit[1:0] {
@@ -530,7 +531,7 @@ package ARM6_PKG;
 			end
 			
 			CYC_SWAP_WRITE: begin
-				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, SHFT_NONE, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, IC[22] ? SHFT_NONE : SHFT_BROT, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, Rm, Rd, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0};
 				DECI.MCTL = {ADR_PC, 1'b0, 1'b1, IC[22]};
@@ -560,7 +561,7 @@ package ARM6_PKG;
 			end
 			
 			CYC_TRANS_WB: begin
-				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, SHFT_NONE, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, IC[22] ? SHFT_NONE : SHFT_BROT, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, 4'd0, Rd, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0};
 				DECI.MCTL = {Rd != 4'd15 ? ADR_PC : ADR_ALU, 1'b0, 1'b0, IC[22]};
