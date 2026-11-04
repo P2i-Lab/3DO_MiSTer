@@ -48,8 +48,10 @@ assemble() {	# tests/<name>.S -> $BUILD/<name>.memh (big-endian words, one per l
 	arm-none-eabi-objcopy -O binary "$BUILD/$n.elf" "$BUILD/$n.bin"
 	od -An -v -tx1 -w4 "$BUILD/$n.bin" | tr -d ' ' > "$BUILD/$n.memh"
 }
-simulate() {	# simulate <name> <memh>: output in $BUILD/<name>.log
-	(cd "$BUILD" && "$SIM" +IMAGE="$2") > "$BUILD/$1.log" 2>&1 || true
+simulate() {	# simulate <name> <memh> [plusargs...]: output in $BUILD/<name>.log
+	local n="$1" img="$2"
+	shift 2
+	(cd "$BUILD" && "$SIM" +IMAGE="$img" "$@") > "$BUILD/$n.log" 2>&1 || true
 }
 selected() {	# true if no filter word was given or <name> contains one of them
 	(( ${#FILTERS[@]} == 0 )) && return 0
@@ -70,11 +72,12 @@ for src in "$HERE"/tests/t_*.S; do
 	n="$(basename "$src" .S)"
 	selected "$n" || continue
 	assemble "$n"
-	simulate "$n" "$BUILD/$n.memh"
+	maxcyc="$(sed -n 's/^@ maxcyc \([0-9][0-9]*\).*/\1/p' "$src" | head -n 1)"	# "@ maxcyc N" in the test
+	simulate "$n" "$BUILD/$n.memh" ${maxcyc:++MAXCYC=$maxcyc}
 	if grep -q '^TB DONE marker=0000600d' "$BUILD/$n.log"; then
 		report "$n" 1
 	else
-		report "$n" 0 "$(grep -m1 '^TB ' "$BUILD/$n.log" || tail -n 3 "$BUILD/$n.log")"
+		report "$n" 0 "$(grep '^TB ' "$BUILD/$n.log" | grep -v '^TB INTS' | head -n 1 || tail -n 3 "$BUILD/$n.log")"
 	fi
 done
 for img in "$HERE"/repro/*.memh; do
