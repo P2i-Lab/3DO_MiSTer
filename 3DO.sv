@@ -553,7 +553,7 @@ module emu
 			if (ioctl_addr == 25'h45A) begin
 				id[15:0] <= {ioctl_data[7:0],ioctl_data[15:8]};
 			end 
-			if (ioctl_addr == 25'h480) begin
+			if (ioctl_addr == 25'h480 && reset) begin	//disc loaded with a console reset only: keep the settings on a hot disc swap
 				{BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h4,4'h6};
 				NEED_DSP_PAUSE <= 0;
 				if (id == 32'h29E4D882) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//3D Atlas (US)
