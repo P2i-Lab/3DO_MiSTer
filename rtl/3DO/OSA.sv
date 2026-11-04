@@ -195,10 +195,10 @@ module OSA
 				DBG_WAIT_CNT <= '0;
 			end
 			
-//			CDMDCHG_OLD <= CDMDCHG;
-//			if (CDMDCHG && !CDMDCHG_OLD) begin
-//				POLL[POLL_MEDIA_ACCESS] <= 1;
-//			end
+			//The drive reports a new disc (hot swap): set Media Access, the OS runs DIPIR on its next bus access
+			if (CDMDCHG) begin
+				POLL[POLL_MEDIA_ACCESS] <= 1;
+			end
 		end
 	end
 	assign EDO = {ESEL_N,ECMD_N,EWRT_N} ==? 3'b1?1 && DEV == 4'd0 && !EXTERN ? CDDI : DOUT;

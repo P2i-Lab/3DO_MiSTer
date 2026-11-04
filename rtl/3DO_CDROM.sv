@@ -79,6 +79,7 @@ module P3DO_CDROM
 	bit  [10: 0] CDD_DATA_ADDR;
 	bit          CDD_BLOCK_READY;
 	bit          CDD_IS_LOADED;
+	bit          CDD_HAD_DISC = 0;
 	always @(posedge CLK) begin
 		bit         RST_N_OLD;
 		bit         CDD_DTEN_OLD,CDD_DIEN_OLD;
@@ -91,6 +92,7 @@ module P3DO_CDROM
 		end
 		
 		CDD_BLOCK_READY <= 0;
+		CDMDCHG <= 0;
 		if (CDD_WR) begin
 			CDD_DATA_ADDR <= CDD_DATA_ADDR + 11'd1;
 			if (CDD_DTEN && CDD_DATA_ADDR == 11'h3FF) begin
@@ -102,7 +104,12 @@ module P3DO_CDROM
 `endif
 				CDD_DATA_ADDR <= '0;
 			end
-			if (CDD_DIEN && CDD_DATA_ADDR == 11'h3FF) CDD_IS_LOADED <= 1;
+			if (CDD_DIEN && CDD_DATA_ADDR == 11'h3FF) begin
+				CDD_IS_LOADED <= 1;
+				//New disc while the console runs (no reset) and a disc was already loaded: media change pulse (hot swap)
+				CDMDCHG <= RST_N && CDD_HAD_DISC;
+				CDD_HAD_DISC <= 1;
+			end
 		end
 		
 		if ((CDD_DTEN && !CDD_DTEN_OLD) || (CDD_DIEN && !CDD_DIEN_OLD)) begin
@@ -188,7 +195,6 @@ module P3DO_CDROM
 			DATA_CNT <= '0;
 			ST_EN <= 0;
 			DT_EN <= 0;
-			CDMDCHG <= 0;
 			ST_DELAY_CNT <= '1;
 			{CDD_IS_LOADED_OLD,TRAY_OPEN_OLD} <= '0;
 			
@@ -210,7 +216,6 @@ module P3DO_CDROM
 			DATA_CNT <= '0;
 			ST_EN <= 0;
 			DT_EN <= 0;
-			CDMDCHG <= 0;
 			{CDD_IS_LOADED_OLD,TRAY_OPEN_OLD} <= '0;
 			
 			CMD_ST <= CMD_IDLE;
@@ -579,12 +584,13 @@ module P3DO_CDROM
 			
 			CDD_IS_LOADED_OLD <= CDD_IS_LOADED;
 			if (CDD_IS_LOADED && !CDD_IS_LOADED_OLD) begin
-				CDMDCHG <= 1;
 				STATUS <= 8'hC1;
+			end
+			if (!CDD_IS_LOADED && CDD_IS_LOADED_OLD) begin
+				STATUS <= 8'h01;	//disc being replaced: door open, no disc
 			end
 			TRAY_OPEN_OLD <= TRAY_OPEN;
 			if (TRAY_OPEN && !TRAY_OPEN_OLD) begin
-				CDMDCHG <= 1;
 				STATUS <= 8'h01;
 			end
 		end
