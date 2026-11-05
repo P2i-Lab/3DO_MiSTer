@@ -8,7 +8,9 @@
 //  the bars must be 64, 25, 25 and 12 pixels long (256 * share, rounded down,
 //  one pixel of tolerance), the box drawn at its place and the rest of the
 //  picture unchanged; with the meter off the picture must be unchanged.
-//  Writes the picture with the meter to meter.ppm. Prints "TB PASS" or "TB FAIL".
+//  Bar 5 (longest pause) must be 0 with these 0.5 us pauses, then 120 pixels once
+//  a 6000-cycle (120 us) pause is added to every frame.
+//  Writes the picture with the meter (and the long pauses) to meter.ppm. Prints "TB PASS" or "TB FAIL".
 //============================================================================
 module tb_pause_meter;
 
@@ -21,7 +23,9 @@ module tb_pause_meter;
 	reg         enable = 0;
 	integer     c = 0;
 	wire [ 6:0] phase = 7'(c % 100);
-	wire        pause = phase < 25;
+	reg         long_en = 0;
+	integer     long_cnt = 0;
+	wire        pause = phase < 25 || long_cnt != 0;
 	wire        ddr_busy = phase < 10;
 	wire        vram_wait = phase >= 10 && phase < 20;
 	wire        io_busy = phase >= 20 && phase < 25;
@@ -38,6 +42,14 @@ module tb_pause_meter;
 			vy <= vy == V_TOT - 1 ? 0 : vy + 1;
 		end
 		else hx <= hx + 1;
+	end
+
+	// one long pause per frame, from video line 10
+	reg         line10_old = 0;
+	always @(posedge clk) begin
+		line10_old <= vy == 10;
+		if (long_cnt != 0) long_cnt <= long_cnt - 1;
+		else if (long_en && vy == 10 && !line10_old) long_cnt <= 6000;
 	end
 
 	P3DO_PAUSE_METER dut (
@@ -63,7 +75,7 @@ module tb_pause_meter;
 	endtask
 
 	function automatic bit in_box(input int x, input int y);
-		return x >= 15 && x <= 272 && y >= 23 && y < 55;
+		return x >= 15 && x <= 272 && y >= 23 && y < 63;
 	endfunction
 
 	integer errors = 0;
@@ -74,9 +86,9 @@ module tb_pause_meter;
 
 	initial begin
 		int len, expect_len[4];
-		reg [23:0] colors[4];
+		reg [23:0] colors[5];
 		integer f;
-		colors = '{24'hFF4040, 24'hFFD000, 24'h00D0FF, 24'h40FF40};
+		colors = '{24'hFF4040, 24'hFFD000, 24'h00D0FF, 24'h40FF40, 24'hFF40FF};
 		expect_len = '{64, 25, 25, 12};
 
 		// Meter on: after a few frames the bars reflect the last full frame
@@ -91,17 +103,29 @@ module tb_pause_meter;
 			end
 			$display("TB BAR %0d: %0d pixels (expected %0d)", r + 1, len, expect_len[r]);
 		end
+		len = 0;
+		for (int x = 16; x < 272; x++) if (pic[24 + 32][x] == colors[4]) len++;
+		if (len != 0) fail($sformatf("bar 5: %0d pixels, expected 0", len));
 		for (int y = 0; y < V_ACT; y++)
 			for (int x = 0; x < H_ACT; x++) begin
 				if (!in_box(x, y) && pic[y][x] != src[y][x]) fail($sformatf("pixel %0d,%0d changed outside the meter", x, y));
 				if (in_box(x, y) && pic[y][x] == src[y][x]) fail($sformatf("pixel %0d,%0d of the meter not drawn", x, y));
 			end
+
+		// Long pauses: bar 5 = 120 us
+		long_en = 1;
+		wait_frames(4);
+		len = 0;
+		for (int x = 16; x < 272; x++) if (pic[24 + 32][x] == colors[4]) len++;
+		if (len < 119 || len > 121) fail($sformatf("bar 5: %0d pixels, expected 120", len));
+		$display("TB BAR 5: %0d pixels (expected 120)", len);
 		f = $fopen("meter.ppm", "w");
 		$fwrite(f, "P3\n%0d %0d\n255\n", H_ACT, V_ACT);
 		for (int y = 0; y < V_ACT; y++)
 			for (int x = 0; x < H_ACT; x++)
 				$fwrite(f, "%0d %0d %0d\n", pic[y][x][23:16], pic[y][x][15:8], pic[y][x][7:0]);
 		$fclose(f);
+		long_en = 0;
 
 		// Meter off: the picture goes through unchanged
 		enable = 0;
