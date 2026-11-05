@@ -409,6 +409,11 @@ module P3DO_CDROM
 			if (CMD_EXEC_WAIT && CE) CMD_EXEC_WAIT <= CMD_EXEC_WAIT - 16'd1;
 			case (CMD_ST)
 				CMD_IDLE: if (CMD_REC && CE) begin
+					//A command clears the error bit left by the previous one and the drive is ready
+					//again (a failed spin-up sets the error and clears ready below). The error code
+					//stays for the Read error command (0x82) that follows the failed command.
+					STATUS[4] <= 0;
+					STATUS[0] <= 1;
 					case (CMD_CODE)
 						8'h02: begin	//Spin up
 							if (STATUS[7] && STATUS[6]) begin STATUS[5] <= 1; STATUS[0] <= 1; ERROR <= ERROR_NO_ERR; end
@@ -552,7 +557,7 @@ module P3DO_CDROM
 								STAT_DATA[0] <= 8'h02;
 							end else if (STAT_FIFO_WPOS == 4'd1) begin
 								STAT_DATA[1] <= STATUS;
-								ERROR <= ERROR_NO_ERR;
+								//ERROR (disc out after a failed spin-up) is kept for the Read error command
 								ST_EN <= 1;
 								CMD_REC <= 0;
 								CMD_ST <= CMD_IDLE;
