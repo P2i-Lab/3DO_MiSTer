@@ -37,7 +37,9 @@ Debugging aids (options of the simulator):
 - `+dsp_trace=F`: from frame F, once per frame, the DSP input FIFOs, DMA enables, interrupts;
 - `+ioread=F1 +ioread_end=F2`: CPU reads of CLIO registers (DSP output memory, timers, XBUS)
   in frames F1..F2 as CLIO sees them, with the value returned (`--watch` misses the reads the
-  ARM announces before an internal cycle);
+  ARM announces before an internal cycle); `+ioread_lo=H +ioread_hi=H` keep a range of
+  registers (hex offsets). XBUS registers (0x400 and up) answer later: the value printed for
+  them is the one of the previous XBUS read;
 - `+madread=F1 +madread_end=F2`: CPU reads of MADAM registers (DMA stack, cel engine) in frames
   F1..F2, with the value returned;
 - `+fifo_stats`: every 60 frames, the DSP reads of each input FIFO and the ones that found it

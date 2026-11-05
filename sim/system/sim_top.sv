@@ -209,17 +209,21 @@ module sim_top
 	end
 
 	// +ioread=F1 +ioread_end=F2: CPU reads of CLIO registers (DSP EO memory, timers, XBUS...) seen
-	// by CLIO itself, frames F1..F2 (the CPU-side --watch misses reads followed by an internal cycle)
-	int ioread_f1 = -1, ioread_f2 = -1, ioread_n = 0;
+	// by CLIO itself, frames F1..F2 (the CPU-side --watch misses reads followed by an internal cycle);
+	// +ioread_lo=H +ioread_hi=H keep the registers in that range (hex offsets in CLIO)
+	int ioread_f1 = -1, ioread_f2 = -1, ioread_n = 0, ioread_lo = 0, ioread_hi = 'hFFFF;
 	initial begin
 		if (!$value$plusargs("ioread=%d", ioread_f1)) ioread_f1 = -1;
 		if (!$value$plusargs("ioread_end=%d", ioread_f2)) ioread_f2 = ioread_f1;
+		if (!$value$plusargs("ioread_lo=%h", ioread_lo)) ioread_lo = 0;
+		if (!$value$plusargs("ioread_hi=%h", ioread_hi)) ioread_hi = 'hFFFF;
 	end
 	always @(posedge clk_sys) begin
 		bit pend;
 		if (ioread_f1 >= 0 && vframe >= ioread_f1 && vframe <= ioread_f2 && ioread_n < 20000) begin
 			if (emu.p3do.clio.EN && emu.p3do.clio.CE_R && emu.p3do.clio.IO_EN && emu.p3do.clio.IO_ST == 0 &&
-			    emu.p3do.clio.CLC == 3'h3 && !emu.p3do.clio.INFO_CODE) begin
+			    emu.p3do.clio.CLC == 3'h3 && !emu.p3do.clio.INFO_CODE &&
+			    int'({emu.p3do.clio.A, 2'b00}) >= ioread_lo && int'({emu.p3do.clio.A, 2'b00}) <= ioread_hi) begin
 				pend <= 1;
 				$write("[ioread f%0d] CLIO+%04X", vframe, {emu.p3do.clio.A, 2'b00});
 			end
