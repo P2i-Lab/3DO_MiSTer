@@ -1341,12 +1341,14 @@ module CLIO
 	bit          EOFIFO_WE_LATCH[4];
 	wire EIFIFO_BUF_WE = (DSP_ADDR[7:0] >= 9'h070 && DSP_ADDR[7:0] <= 9'h07E && DSP_EIRAM_WE);//0x070-0x07E
 	bit  [15: 0] EIFIFO_BUF[13];
+	bit          EIFIFO_CPU[13];	//EIFIFO_BUF holds a value written by the CPU, not read yet by the DSP
 //	bit          EIFIFO_BUF_EMPTY[13];
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
 			EIFIFO_OE_LATCH <= '{13{0}};
 			EOFIFO_WE_LATCH <= '{4{0}};
 			EIFIFO_BUF <= '{13{'0}};
+			EIFIFO_CPU <= '{13{0}};
 //			EIFIFO_BUF_EMPTY <= '{13{0}};
 		end
 		else if (EN && CE_R) begin
@@ -1370,15 +1372,27 @@ module CLIO
 				EOFIFO_WE_LATCH[ 3] <= EOFIFO3_WE;
 				
 				if ((EIFIFO_OE || EIFIFO_OE2) && DSP_EI_OE) begin
-					EIFIFO_BUF[DSP_EI_ADDR[3:0]] <= EIFIFO_Q[DSP_EI_ADDR[3:0]];
+					EIFIFO_CPU[DSP_EI_ADDR[3:0]] <= 0;
 //					EIFIFO_BUF_EMPTY[DSP_EI_ADDR[3:0]] <= 1;
 				end
 			end
 			if (IO_EN) begin
 				if (EIFIFO_BUF_WE) begin
 					EIFIFO_BUF[DSP_ADDR[3:0]] <= DSP_DI;
+					EIFIFO_CPU[DSP_ADDR[3:0]] <= 1;
 //					EIFIFO_BUF_EMPTY[DSP_ADDR[3:0]] <= 0;
 				end
+			end
+		end
+		else if (EN) begin
+			//Between the DSP cycles (CE_R), EIFIFO_BUF takes the head of each input FIFO, so that a
+			//DSP read (bump 0x0F0-0x0FC, read 0x070-0x07C) returns the current head. It used to be
+			//loaded by the read itself, which handed the DSP the previous sample: instruments that
+			//bump the left then the right sample of a stereo frame (the BIOS audio CD player's
+			//fixedstereo16swap.dsp) got their channels swapped. A value written by the CPU is kept
+			//until the DSP has read it.
+			for (int i = 0; i < 13; i++) begin
+				if (!EIFIFO_CPU[i]) EIFIFO_BUF[i] <= EIFIFO_Q[i];
 			end
 		end
 	end
