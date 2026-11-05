@@ -38,7 +38,8 @@ package ARM6_PKG;
 		SHFT_CONST = 3'b001, 
 		SHFT_REG   = 3'b010, 
 		SHFT_ROT   = 3'b011,
-		SHFT_LSL2  = 3'b100 
+		SHFT_LSL2  = 3'b100,
+		SHFT_BROT  = 3'b101 	//word load data rotated right by 8*address[1:0]
 	} ShiftCtrl_t;
 
 	typedef enum bit[1:0] {
@@ -259,7 +260,8 @@ package ARM6_PKG;
 				DECI.LST = 1;
 			end
 			
-			12'b00010x10_xxx0: begin 	//MSR PSR,Rm
+			12'b00010x10_xxx0, 			//MSR PSR,Rm
+			12'b00110x10_xxxx: begin 	//MSR PSR_flg,#imm
 				CYC = CYC_PSR_WRITE;
 				DECI.PCU = 1;
 				DECI.LST = 1;
@@ -509,7 +511,7 @@ package ARM6_PKG;
 			end
 				
 			CYC_PSR_WRITE: begin
-				DECI.DPCTL = {1'b0, 1'b0, IMM_DAT, IC[25] ? SHFT_ROT : IC[4] ? SHFT_REG : SHFT_CONST, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, IC[25], IMM_U8, IC[25] ? SHFT_ROT : IC[4] ? SHFT_REG : SHFT_CONST, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, Rm, Rd, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0};
 				DECI.PSRCTL = PSRC_ALU;
@@ -529,7 +531,7 @@ package ARM6_PKG;
 			end
 			
 			CYC_SWAP_WRITE: begin
-				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, SHFT_NONE, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, IC[22] ? SHFT_NONE : SHFT_BROT, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, Rm, Rd, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0};
 				DECI.MCTL = {ADR_PC, 1'b0, 1'b1, IC[22]};
@@ -559,7 +561,7 @@ package ARM6_PKG;
 			end
 			
 			CYC_TRANS_WB: begin
-				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, SHFT_NONE, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, 1'b1, IMM_DAT, IC[22] ? SHFT_NONE : SHFT_BROT, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, 4'd0, Rd, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0};
 				DECI.MCTL = {Rd != 4'd15 ? ADR_PC : ADR_ALU, 1'b0, 1'b0, IC[22]};
@@ -648,12 +650,14 @@ package ARM6_PKG;
 		{rot,arith,dir} = {&t[1:0],t[1]&~t[0],|t[1:0]};
 		rrx = (t == 3'b111 && sa == 8'h00);
 		
-		{cl0,tmp0,cr0} = !sa[0]   ? {1'b0,  val, 1'b0} : (dir ? { 1'b0,  val[ 0: 0]&{ 1{rot}}|{ 1{ val[31]}}&{ 1{arith}},  val[31: 1],  val[ 0]} : { val[31],  val[30:0], { 1{1'b0}}, 1'b0 });
+		//A zero shift amount leaves the value unchanged and the carry-out is the input carry
+		{cl0,tmp0,cr0} = !sa[0]   ? {  ci,  val,   ci} : (dir ? { 1'b0,  val[ 0: 0]&{ 1{rot}}|{ 1{ val[31]}}&{ 1{arith}},  val[31: 1],  val[ 0]} : { val[31],  val[30:0], { 1{1'b0}}, 1'b0 });
 		{cl1,tmp1,cr1} = !sa[1]   ? { cl0, tmp0,  cr0} : (dir ? { 1'b0, tmp0[ 1: 0]&{ 2{rot}}|{ 2{tmp0[31]}}&{ 2{arith}}, tmp0[31: 2], tmp0[ 1]} : {tmp0[30], tmp0[29:0], { 2{1'b0}}, 1'b0 });
 		{cl2,tmp2,cr2} = !sa[2]   ? { cl1, tmp1,  cr1} : (dir ? { 1'b0, tmp1[ 3: 0]&{ 4{rot}}|{ 4{tmp1[31]}}&{ 4{arith}}, tmp1[31: 4], tmp1[ 3]} : {tmp1[28], tmp1[27:0], { 4{1'b0}}, 1'b0 });
 		{cl3,tmp3,cr3} = !sa[3]   ? { cl2, tmp2,  cr2} : (dir ? { 1'b0, tmp2[ 7: 0]&{ 8{rot}}|{ 8{tmp2[31]}}&{ 8{arith}}, tmp2[31: 8], tmp2[ 7]} : {tmp2[24], tmp2[23:0], { 8{1'b0}}, 1'b0 });
 		{cl4,tmp4,cr4} = !sa[4]   ? { cl3, tmp3,  cr3} : (dir ? { 1'b0, tmp3[15: 0]&{16{rot}}|{16{tmp3[31]}}&{16{arith}}, tmp3[31:16], tmp3[15]} : {tmp3[16], tmp3[15:0], {16{1'b0}}, 1'b0 });
-		{cl5,tmp5,cr5} = !sa[7:5] ? { cl4, tmp4,  cr4} : (dir ? { 1'b0, tmp4[31: 0]&{32{rot}}|{32{tmp4[31]}}&{32{arith}},              tmp4[31]} : {tmp4[ 0],             {32{1'b0}}, 1'b0 });
+		//Shift by 32 or more: LSL/LSR give 0 with carry-out bit 0/bit 31 for exactly 32, and 0 above (ASR and ROR keep bit 31)
+		{cl5,tmp5,cr5} = !sa[7:5] ? { cl4, tmp4,  cr4} : (dir ? { 1'b0, tmp4[31: 0]&{32{rot}}|{32{tmp4[31]}}&{32{arith}},              tmp4[31] & (rot | arith | sa[7:5] == 3'b001)} : {tmp4[ 0] & (sa[7:5] == 3'b001),             {32{1'b0}}, 1'b0 });
 		return rrx ? {val[0],ci,val[31:1]} : {dir?cr5:cl5,tmp5};
 	endfunction
 	

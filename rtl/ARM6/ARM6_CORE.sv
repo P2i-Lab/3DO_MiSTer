@@ -250,10 +250,11 @@ module ARM6_CORE
 		SHIFT_A = DECI.DPCTL.SB ? IMM : RB_RBQ;
 		case (DECI.DPCTL.SHCTL)
 			SHFT_NONE:  begin SHIFT_SA = '0;                        SHIFT_TYPE = 3'b000; end
-			SHFT_CONST: begin SHIFT_SA = {3'b000,EX_IC[11:7]};      SHIFT_TYPE = {1'b1,EX_IC[6:5]}; end
+			SHFT_CONST: begin SHIFT_SA = {2'b00,~|EX_IC[11:7] & (EX_IC[6] ^ EX_IC[5]),EX_IC[11:7]}; SHIFT_TYPE = {1'b1,EX_IC[6:5]}; end	//LSR #0 and ASR #0 encode a shift by 32
 			SHFT_REG:   begin SHIFT_SA = SHIFT_LATCH;               SHIFT_TYPE = {1'b0,EX_IC[6:5]}; end
 			SHFT_ROT:   begin SHIFT_SA = {3'b000,EX_IC[11:8],1'b0}; SHIFT_TYPE = 3'b011; end
 			SHFT_LSL2:  begin SHIFT_SA = 8'd2;                      SHIFT_TYPE = 3'b000; end
+			SHFT_BROT:  begin SHIFT_SA = {3'b000,BA,3'b000};        SHIFT_TYPE = 3'b011; end	//LDR/SWP word: ROR by 8*address[1:0]
 		endcase
 		
 		{SHIFT_C,SHIFT_RES} = Shifter(SHIFT_A, SHIFT_SA, SHIFT_TYPE, CPSR.C);
@@ -359,6 +360,9 @@ module ARM6_CORE
 	assign PC_WE = DECI.PCU;
 	
 	//PSR
+	//MSR field mask (ARMv3): IC[16]=1 is PSR_all (flags and control bits), IC[16]=0 is PSR_flg (flags only)
+	wire [31: 0] PSR_WMASK = EX_IC[16] ? 32'hFFFFFFFF : 32'hF0000000;
+	
 	always_comb begin
 		CPSR_NEXT <= CPSR;
 		case (DECI.PSRCTL)
@@ -369,7 +373,7 @@ module ARM6_CORE
 					5'b10010,
 					5'b10011,
 					5'b10111,
-					5'b11011: CPSR_NEXT <= ALU_R;
+					5'b11011: CPSR_NEXT <= (ALU_R & PSR_WMASK) | (CPSR & ~PSR_WMASK);
 					default: ;
 				endcase
 					
@@ -403,11 +407,11 @@ module ARM6_CORE
 			case (DECI.PSRCTL)
 				PSRC_ALU: if (EX_IC[22])
 					case (CPSR.M)
-						5'b10001: SPSR[1] <= ALU_R;
-						5'b10010: SPSR[2] <= ALU_R;
-						5'b10011: SPSR[3] <= ALU_R;
-						5'b10111: SPSR[4] <= ALU_R;
-						5'b11011: SPSR[5] <= ALU_R;
+						5'b10001: SPSR[1] <= (ALU_R & PSR_WMASK) | (SPSR[1] & ~PSR_WMASK);
+						5'b10010: SPSR[2] <= (ALU_R & PSR_WMASK) | (SPSR[2] & ~PSR_WMASK);
+						5'b10011: SPSR[3] <= (ALU_R & PSR_WMASK) | (SPSR[3] & ~PSR_WMASK);
+						5'b10111: SPSR[4] <= (ALU_R & PSR_WMASK) | (SPSR[4] & ~PSR_WMASK);
+						5'b11011: SPSR[5] <= (ALU_R & PSR_WMASK) | (SPSR[5] & ~PSR_WMASK);
 						default:;
 					endcase
 				
