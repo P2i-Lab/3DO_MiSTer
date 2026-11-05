@@ -13,12 +13,16 @@ usage: disc_id.py IMAGE|FOLDER [...]   (.cue, .iso, .bin, .chd)
 Example line for 3DO.sv:
   if (id == 32'h031BED09) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US)
 """
-import lzma
 import os
 import re
 import struct
 import sys
 import zlib
+
+try:
+    import lzma
+except ImportError:         # not built into every Python (MiSTer's Linux?): only cdlz CHDs need it
+    lzma = None
 
 SYNC = b"\x00" + b"\xff" * 10 + b"\x00"
 
@@ -234,6 +238,9 @@ def chd_hunk(f, hdr, hunks, h):
     if codec == b"cdzl":
         return zlib.decompressobj(-15).decompress(data, frames * CD_SECTOR)
     if codec == b"cdlz":
+        if lzma is None:
+            raise ValueError("first data sector compressed with LZMA, and this Python has no "
+                             "lzma module")
         lzma1 = {"id": lzma.FILTER_LZMA1, "dict_size": 1 << 20, "lc": 3, "lp": 0, "pb": 2}
         return lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[lzma1]).decompress(
             data, frames * CD_SECTOR)
@@ -313,11 +320,12 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return 2
+    errors = (OSError, ValueError, IndexError, zlib.error) + ((lzma.LZMAError,) if lzma else ())
     for arg in sys.argv[1:]:
         for p in images(arg):
             try:
                 print(describe(p))
-            except (OSError, ValueError, IndexError, lzma.LZMAError, zlib.error) as e:
+            except errors as e:
                 print(f"{p}: {e}")
     return 0
 
