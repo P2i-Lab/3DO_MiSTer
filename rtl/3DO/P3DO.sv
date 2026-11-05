@@ -59,6 +59,7 @@ module P3DO
 	output             SRAMR_N,
 	
 	output             ROM_SEL,
+	output             WDOG_RST,
 	
 	input      [ 7: 0] CDDI,
 	output reg [ 7: 0] CDDO,
@@ -150,6 +151,7 @@ module P3DO
 	bit          ERDY_N;
 	bit          EINT_N;
 	bit  [ 3: 0] CLIO_ADBIO_O;
+	bit  [ 3: 0] CLIO_ADBIO_D;
 	bit  [15: 0] CLIO_AUDIOL,CLIO_AUDIOR;
 	
 	bit          HSYNC_N;
@@ -376,6 +378,7 @@ module P3DO
 		
 		.ADBIO_I('0),
 		.ADBIO_O(CLIO_ADBIO_O),
+		.ADBIO_D(CLIO_ADBIO_D),
 		
 		.VCE(VCE),
 		.HSYNC_N(HSYNC_N),
@@ -404,6 +407,11 @@ module P3DO
 	assign AUDIOR = CLIO_AUDIOR & {16{~MUTE}};
 	
 	assign ROM_SEL = CLIO_ADBIO_O[2];
+	
+	//ADBIO pin 3 is the watchdog reset output. The boot ROM drives it, with its output enable, to
+	//restart the console for good (dipir "hardboot"): when the disc is changed under a title that
+	//does not accept another disc, as most multi-disc games, and when a drive does not recover.
+	assign WDOG_RST = CLIO_ADBIO_D[3] & CLIO_ADBIO_O[3];
 	
 	OSA osa
 	(

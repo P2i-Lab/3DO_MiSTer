@@ -24,7 +24,8 @@ module P3DO_CDROM
 	
 	inout      [35: 0] EXT_BUS,
 	
-	input              TRAY_OPEN
+	input              TRAY_OPEN,
+	input              HOLD_DISC	//reset of the console that keeps the disc in the drive (watchdog)
 	
 `ifdef DEBUG
 	                  ,
@@ -90,7 +91,7 @@ module P3DO_CDROM
 		RST_N_OLD <= RST_N;
 		CDD_DTEN_OLD <= CDD_DTEN;
 		CDD_DIEN_OLD <= CDD_DIEN;
-		if ((!RST_N && RST_N_OLD) || (CDD_DIEN && !CDD_DIEN_OLD)) begin
+		if ((!RST_N && RST_N_OLD && !HOLD_DISC) || (CDD_DIEN && !CDD_DIEN_OLD)) begin
 			CDD_IS_LOADED <= 0;
 		end
 		
@@ -242,7 +243,7 @@ module P3DO_CDROM
 		if (!RST_N) begin
 			IO_ST <= IO_IDLE;
 			COMMAND <= '{8{'0}};
-			STATUS <= 8'h81;
+			STATUS <= CDD_IS_LOADED ? 8'hC1 : 8'h81;	//a disc kept through the reset is still in
 			ERROR <= ERROR_NO_ERR;
 			
 			CMD_DATA_CNT <= '0;
