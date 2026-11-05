@@ -528,7 +528,7 @@ module emu
 	DeathKeep (US): 0x250000/0x278000 (FMV only)
 	FIFA International Soccer (US, Korea): 0x2AC000/0x2D2000
 	Gex (US, EU): 0x25C800/0x282000/0x2A7800/0x2CD000 (FMV only)
-	Psychic Detective (US) (Disc 1): 0x28B800/0x2B1000
+	Psychic Detective (US) (Discs 1, 2 and 3, same program): 0x28B800/0x2B1000
 	Quarantine (US): 0x274BA4
 	Road & Track Presents - The Need for Speed (US, EU): 0x2AD000/0x2D3000
 	Seal of the Pharaoh (US): 0x270800/0x296000
@@ -577,6 +577,8 @@ module emu
 			if (id == 32'h0340842C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Cannon Fodder (US)
 			if (id == 32'h2D731C98) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//FIFA International Soccer (US, Korea)
 			if (id == 32'h2584F855) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 1)
+			if (id == 32'h3A43EB1B) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 2)
+			if (id == 32'h0EA661F9) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 3)
 			if (id == 32'h031BED09) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US)
 			if (id == 32'h06DE0DC2) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Road & Track Presents - The Need for Speed (US, EU)
 			if (id == 32'h2D95DCB6) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Seal of the Pharaoh (US)
