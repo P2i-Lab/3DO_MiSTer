@@ -208,6 +208,44 @@ module sim_top
 		$write("\n");
 	end
 
+	// +ioread=F1 +ioread_end=F2: CPU reads of CLIO registers (DSP EO memory, timers, XBUS...) seen
+	// by CLIO itself, frames F1..F2 (the CPU-side --watch misses reads followed by an internal cycle)
+	int ioread_f1 = -1, ioread_f2 = -1, ioread_n = 0;
+	initial begin
+		if (!$value$plusargs("ioread=%d", ioread_f1)) ioread_f1 = -1;
+		if (!$value$plusargs("ioread_end=%d", ioread_f2)) ioread_f2 = ioread_f1;
+	end
+	always @(posedge clk_sys) begin
+		bit pend;
+		if (ioread_f1 >= 0 && vframe >= ioread_f1 && vframe <= ioread_f2 && ioread_n < 20000) begin
+			if (emu.p3do.clio.EN && emu.p3do.clio.CE_R && emu.p3do.clio.IO_EN && emu.p3do.clio.IO_ST == 0 &&
+			    emu.p3do.clio.CLC == 3'h3 && !emu.p3do.clio.INFO_CODE) begin
+				pend <= 1;
+				$write("[ioread f%0d] CLIO+%04X", vframe, {emu.p3do.clio.A, 2'b00});
+			end
+			else if (pend) begin
+				pend <= 0;
+				ioread_n++;
+				$write(" = %08X\n", emu.p3do.clio.CPU_DO);
+			end
+		end
+	end
+
+	// +madread=F1 +madread_end=F2: CPU reads of MADAM registers (DMA stack, cel engine...) in frames
+	// F1..F2, with the value MADAM returns
+	int madread_f1 = -1, madread_f2 = -1, madread_n = 0;
+	initial begin
+		if (!$value$plusargs("madread=%d", madread_f1)) madread_f1 = -1;
+		if (!$value$plusargs("madread_end=%d", madread_f2)) madread_f2 = madread_f1;
+	end
+	always @(posedge clk_sys) begin
+		if (madread_f1 >= 0 && vframe >= madread_f1 && vframe <= madread_f2 && madread_n < 20000 &&
+		    emu.p3do.MCLK_PH2 && !emu.pause && emu.p3do.madam.CPU_REG_SEL && !emu.p3do.CPU_nRW) begin
+			madread_n++;
+			$display("[madread f%0d] MADAM+%04X = %08X", vframe, emu.p3do.madam.A[15:0], emu.p3do.madam.REG_DO);
+		end
+	end
+
 	// +cd_trace: commands of the 3DO OS to the drive, requests of the drive to Main_MiSTer
 	bit cd_trace = 0;
 	longint sys_cycles = 0;

@@ -35,6 +35,11 @@ Debugging aids (options of the simulator):
 - `+cd_trace`: the commands of the OS to the CD drive, the drive replies and the requests to
   Main; `--cd-log N`: the sectors Main sends;
 - `+dsp_trace=F`: from frame F, once per frame, the DSP input FIFOs, DMA enables, interrupts;
+- `+ioread=F1 +ioread_end=F2`: CPU reads of CLIO registers (DSP output memory, timers, XBUS)
+  in frames F1..F2 as CLIO sees them, with the value returned (`--watch` misses the reads the
+  ARM announces before an internal cycle);
+- `+madread=F1 +madread_end=F2`: CPU reads of MADAM registers (DMA stack, cel engine) in frames
+  F1..F2, with the value returned;
 - `+fifo_stats`: every 60 frames, the DSP reads of each input FIFO and the ones that found it
   empty (underruns, heard as clicks), with the longest system pause.
 
@@ -43,8 +48,8 @@ Test discs and sound checks (Python 3, no extra module):
 - `make_audio_cd.py`: 3 tracks of steady tones, a different frequency on each channel
   (`wav_tones.py` tells which tone each half second of a recording holds);
 - `make_steps_cd.py`: a tone stepping up every half second (`wav_steps.py` reads the steps back
-  and flags skips and wrong speeds); `--be` writes big-endian samples for emulators that swap
-  BIN audio;
+  and flags skips and wrong speeds, `--swap` when the channels come the other way round); `--be`
+  writes big-endian samples for emulators that swap BIN audio;
 - `wav_compare.py`: aligns two recordings of the same moment (e.g. the simulation and an
   emulator) and correlates their channels, to compare loudness and stereo orientation.
 

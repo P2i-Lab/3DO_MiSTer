@@ -3,7 +3,7 @@
 step heard on the left (strongest of the step frequencies 200 + 25 k Hz) and whether the right channel
 holds twice that frequency. Continuous playback at the right speed reads k = 0, 0, 1, 1, 2, 2, ...;
 a skip shows as a jump, a wrong speed as steps lasting more or less than 0.5 s.
-usage: wav_steps.py audio.wav"""
+usage: wav_steps.py audio.wav [--swap]   (--swap: read the channels the other way round)"""
 import math
 import struct
 import sys
@@ -29,6 +29,8 @@ def main():
         m = win // 2
         left = [struct.unpack_from("<h", pcm, 4 * (a + i))[0] for i in range(m)]
         right = [struct.unpack_from("<h", pcm, 4 * (a + i) + 2)[0] for i in range(m)]
+        if "--swap" in sys.argv[2:]:
+            left, right = right, left
         rms = math.sqrt(sum(v * v for v in left) / m)
         if rms < 300:
             continue
