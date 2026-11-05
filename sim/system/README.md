@@ -52,6 +52,8 @@ Test discs and sound checks (Python 3, no extra module):
 - `make_steps_cd.py`: a tone stepping up every half second (`wav_steps.py` reads the steps back
   and flags skips and wrong speeds, `--swap` when the channels come the other way round); `--be`
   writes big-endian samples for emulators that swap BIN audio;
+- `png_sheet.py out.png COLS SCALE frame_*.png`: a contact sheet of the pictures of a run, each
+  labelled with its frame number (to follow a boot or a game in one picture);
 - `wav_compare.py`: aligns two recordings of the same moment (e.g. the simulation and an
   emulator) and correlates their channels, to compare loudness and stereo orientation.
 
