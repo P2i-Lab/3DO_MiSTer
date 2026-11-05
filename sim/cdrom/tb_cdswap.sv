@@ -9,11 +9,14 @@
 //  3. New disc sent while the console runs (hot swap): STATUS goes to 0x01 (door
 //     open, no disc) during the transfer then 0xC1, one CDMDCHG pulse, POLL bit 7 set.
 //  4. Drive reset through the XBUS reset line: no CDMDCHG pulse.
+//  5. Console reset by the watchdog (HOLD_DISC): the disc stays in the drive (STATUS
+//     0xC1 during and after the reset), no CDMDCHG pulse.
+//  6. Other console resets (OSD reset): the drive forgets the disc until Main sends one.
 //  Prints "TB PASS" or "TB FAIL <reason>".
 //============================================================================
 module tb_cdswap;
 
-	reg         clk = 0, rst_n = 0, ce = 0;
+	reg         clk = 0, rst_n = 0, ce = 0, hold_disc = 0;
 	reg  [15:0] cdd_data = '0;
 	reg         cdd_wr = 0, cdd_dien = 0;
 	reg  [ 7:0] edi = '0;
@@ -34,7 +37,7 @@ module tb_cdswap;
 		.CDEN_N(cden_n), .CDCMD_N(cdcmd_n), .CDHWR_N(cdhwr_n), .CDHRD_N(cdhrd_n), .CDRST_N(cdrst_n),
 		.CDSTEN_N(cdsten_n), .CDDTEN_N(cddten_n), .CDMDCHG(cdmdchg),
 		.CDD_DATA(cdd_data), .CDD_WR(cdd_wr), .CDD_DTEN(1'b0), .CDD_DIEN(cdd_dien),
-		.EXT_BUS(ext_bus), .TRAY_OPEN(1'b0)
+		.EXT_BUS(ext_bus), .TRAY_OPEN(1'b0), .HOLD_DISC(hold_disc)
 	);
 
 	OSA osa (
@@ -130,6 +133,22 @@ module tb_cdswap;
 		erst_n = 1; wait_clk(40);
 		if (pulses != 1) fail("media change pulse on a drive reset");
 		if (cd.STATUS != 8'hC1) fail("no disc reported after a drive reset");
+
+		// 5. Watchdog reset of the console: the disc stays in
+		hold_disc = 1;
+		rst_n = 0; wait_clk(20);
+		if (!cd.CDD_IS_LOADED) fail("disc dropped by a watchdog reset");
+		if (cd.STATUS != 8'hC1) fail("no disc reported during a watchdog reset");
+		rst_n = 1; wait_clk(4);
+		hold_disc = 0; wait_clk(40);
+		if (pulses != 1) fail("media change pulse on a watchdog reset");
+		if (cd.STATUS != 8'hC1) fail("no disc reported after a watchdog reset");
+
+		// 6. Other console reset: the disc is forgotten (Main sends it again on a load)
+		rst_n = 0; wait_clk(20);
+		rst_n = 1; wait_clk(40);
+		if (cd.CDD_IS_LOADED || cd.STATUS != 8'h81) fail("disc kept by a reset without HOLD_DISC");
+		if (pulses != 1) fail("media change pulse on a console reset");
 
 		$display("TB PASS (pulses=%0d)", pulses);
 		$finish;
