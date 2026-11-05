@@ -291,7 +291,7 @@ module emu
 	// 0         1         2         3          4         5         6   
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X     XXXX  XXXXXXXX             XXXXXXXX                        
+	// X     XXXX  XXXXXXXXX            XXXXXXXX                        
 	
 	`include "build_id.v"
 	localparam CONF_STR = {
@@ -325,6 +325,7 @@ module emu
 		"P4,Debug;",
 		"P4OH,H Interpolation,Off,On;",
 		"P4OI,V Interpolation,Off,On;",
+		"P4OK,Pause meter,Off,On;",
 		
 		"-;",
 		"R0,Reset;",
@@ -1209,6 +1210,25 @@ module emu
 	assign VGA_SL = {~INTERLACE,~INTERLACE} & sl[1:0];
 	assign VGA_F1 = INTERLACE & FIELD;
 	
+	//Debug: share of each frame where the console waits for the DDR3, drawn over the picture
+	wire [23:0] meter_rgb;
+	P3DO_PAUSE_METER pause_meter
+	(
+		.CLK(clk_sys),
+		.PAUSE(pause),
+		.DDR_BUSY(ddr_busy),
+		.VRAM_WAIT(~VRAM_LRDY | ~VRAM_RRDY),
+		.IO_BUSY(ddr_io_busy),
+		.ENABLE(status[20]),
+
+		.VCLK(clk_vid),
+		.CE_PIX(DCLK),
+		.HBL_N(HBL_N),
+		.VBL_N(VBL_N),
+		.RGB_IN({R,G,B}),
+		.RGB_OUT(meter_rgb)
+	);
+
 	wire vga_de;
 	video_mixer #(.LINE_LENGTH(8), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
 	(
@@ -1221,9 +1241,9 @@ module emu
 	
 		.VGA_DE(vga_de),
 
-		.R(R),
-		.G(G),
-		.B(B),
+		.R(meter_rgb[23:16]),
+		.G(meter_rgb[15: 8]),
+		.B(meter_rgb[ 7: 0]),
 	
 		// Positive pulses.
 		.HSync(~HS_N),
