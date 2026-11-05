@@ -1,4 +1,4 @@
-// Host test of Main_MiSTer support/3do/3docdd.cpp (CD-DA and raw blocks): builds CUE/BIN and ISO
+// Host test of Main_MiSTer support/3do/3docdd.cpp (CD-DA, raw blocks, pacing): builds CUE/BIN and ISO
 // images, drives p3docdd_t like support/3do/3do.cpp does (SetCommand, CommandExec, Process, Update)
 // and checks the TOC and every byte sent to the core.
 #include <stdio.h>
@@ -10,6 +10,11 @@
 #include "support/3do/3do.h"
 
 uint32_t p3do_frame_cnt = 0;
+
+// ---- hardware.h stubs: a clock the test sets ----
+static unsigned long fake_ms = 0;
+unsigned long GetTimer(unsigned long offset) { return fake_ms + offset; }
+unsigned long CheckTimer(unsigned long t) { return fake_ms >= t; }
 
 // ---- file_io / chd stubs ----
 int FileOpen(fileTYPE *file, const char *name, char)
@@ -116,6 +121,7 @@ int main()
 
 	// track 2 TOC start (as Main computes it) -> read its first 3 blocks in raw format
 	int t2_abs = info[16*2+5] * 4500 + info[16*2+6] * 75 + info[16*2+7];
+	const int t2_first_abs = t2_abs;
 	do_read(t2_abs, 3, P3DO_FMT_RAW);
 	CHECK(sent.size() == 3, "3 audio blocks sent (%zu)", sent.size());
 	for (size_t b = 0; b < sent.size(); b++)
@@ -125,10 +131,10 @@ int main()
 		int bad = -1;
 		for (int i = 0; i < 2352 && bad < 0; i++)
 		{
-			uint8_t e = audio_byte(1000 + (int)b, i ^ 1);	// samples swapped to big-endian
+			uint8_t e = audio_byte(1000 + (int)b, i);	// samples in disc order, as the drive returns them
 			if (sent[b][i] != e) bad = i;
 		}
-		CHECK(bad < 0, "audio block %zu byte %d = %02x, expected %02x", b, bad, bad >= 0 ? sent[b][bad] : 0, bad >= 0 ? audio_byte(1000 + (int)b, bad ^ 1) : 0);
+		CHECK(bad < 0, "audio block %zu byte %d = %02x, expected %02x", b, bad, bad >= 0 ? sent[b][bad] : 0, bad >= 0 ? audio_byte(1000 + (int)b, bad) : 0);
 	}
 
 
@@ -154,7 +160,7 @@ int main()
 		for (int i = 0; i < 10; i++) { crc ^= (uint16_t)q[i] << 8; for (int k = 0; k < 8; k++) crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1); }
 		crc = (uint16_t)~crc;
 		CHECK(q[10] == (crc >> 8) && q[11] == (crc & 0xFF), "subcode Q CRC");
-		CHECK(sent[b][0] == audio_byte(1000 + 80 + (int)b, 1), "audio data with subcode");
+		CHECK(sent[b][0] == audio_byte(1000 + 80 + (int)b, 0), "audio data with subcode");
 	}
 	// a known Q frame: track 1 audio, index 1, 00:00:00 relative, 00:02:00 absolute
 	{
@@ -167,7 +173,7 @@ int main()
 	int t3_abs = info[16*3+5] * 4500 + info[16*3+6] * 75 + info[16*3+7];
 	do_read(t3_abs - 1, 2, P3DO_FMT_RAW);
 	CHECK(sent.size() == 2, "2 blocks across tracks");
-	CHECK(sent.size() == 2 && sent[0][0] == audio_byte(1000 + 349, 1) && sent[1][0] == audio_byte(2000, 1), "track boundary data");
+	CHECK(sent.size() == 2 && sent[0][0] == audio_byte(1000 + 349, 0) && sent[1][0] == audio_byte(2000, 0), "track boundary data");
 
 	// data track: 2048 user bytes (unchanged path) and raw 2352
 	do_read(150 + 16, 1, P3DO_FMT_DATA);
@@ -207,7 +213,7 @@ int main()
 	do_read(150 + 8, 1, P3DO_FMT_DATA);
 	CHECK(sent.size() == 1 && memcmp(sent[0].data(), &iso[8 * 2048], 2048) == 0, "ISO data block");
 
-	// ---------- 3. one BIN with every track (data + audio), audio MOTOROLA = big-endian already ----------
+	// ---------- 3. one BIN with every track (data + audio); MOTOROLA audio (big-endian) swapped ----------
 	std::vector<uint8_t> all(400 * 2352);
 	for (int l = 0; l < 200; l++) make_raw_data(&all[l * 2352], l);
 	for (int l = 200; l < 400; l++) for (int i = 0; i < 2352; i++) all[l * 2352 + i] = audio_byte(3000 + l, i);
@@ -223,7 +229,7 @@ int main()
 	printf("single BIN: track 2 at %02d:%02d:%02d (expected 00:04:60)\n", info[16*2+5], info[16*2+6], info[16*2+7]);
 	CHECK(t2_abs == 150 + 210, "single-BIN track 2 start");
 	do_read(t2_abs, 1, P3DO_FMT_RAW);
-	CHECK(sent.size() == 1 && sent[0][0] == audio_byte(3000 + 210, 1) && sent[0][1] == audio_byte(3000 + 210, 0), "single-BIN audio");
+	CHECK(sent.size() == 1 && sent[0][0] == audio_byte(3000 + 210, 0) && sent[0][1] == audio_byte(3000 + 210, 1), "single-BIN audio");
 
 	c = fopen("motorola.cue", "w");
 	fprintf(c, "FILE \"t3.bin\" MOTOROLA\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n");
@@ -231,7 +237,7 @@ int main()
 	CHECK(p3docdd.Load("motorola.cue") > 0, "MOTOROLA load");
 	p3docdd.SendData = capture;
 	do_read(150 + 5, 1, P3DO_FMT_RAW);
-	CHECK(sent.size() == 1 && sent[0][0] == audio_byte(2005, 0) && sent[0][1] == audio_byte(2005, 1), "MOTOROLA audio not swapped");
+	CHECK(sent.size() == 1 && sent[0][0] == audio_byte(2005, 1) && sent[0][1] == audio_byte(2005, 0), "MOTOROLA audio not swapped to disc order");
 
 
 	// CUE FLAGS PRE: control bit 0x01 in the TOC and in the subcode
@@ -244,6 +250,50 @@ int main()
 	CHECK(info[16*1+2] == 0x13, "FLAGS: TOC control %02x", info[16*1+2]);
 	do_read(150 + 3, 1, P3DO_FMT_RAW | 4);
 	CHECK(sent.size() == 1 && (((sent[0][2352+1] >> 6) & 1) == 0) && (((sent[0][2352+2] >> 6) & 1) == 1) && (((sent[0][2352+3] >> 6) & 1) == 1) && (((sent[0][2352+7] >> 6) & 1) == 1), "FLAGS: subcode control bits");
+
+	// ---------- 4. CD-DA at the speed of the disc ----------
+	// One READ of 100 blocks as the core asks for them (NEXT after each block): 48 blocks at once
+	// (read-ahead), then 75 per second of the clock. Another READ that does not continue it restarts it.
+	CHECK(p3docdd.Load("disc.cue") > 0, "pacing: CUE load");
+	p3docdd.SendData = capture;
+	{
+		int a = t2_first_abs;
+		uint8_t cmd[8] = { 0x10, (uint8_t)(a / 75 / 60), (uint8_t)((a / 75) % 60), (uint8_t)(a % 75), 0, 0, 100, P3DO_FMT_RAW };
+		uint8_t next[8] = { 0x20, 0, 0, 0, 0, 0, 0, 0 };
+		uint8_t tm;
+		sent.clear();
+		fake_ms = 5000;
+		p3docdd.SetCommand(cmd);
+		p3docdd.CommandExec();
+		size_t at_once = 0, at_600 = 0;
+		for (int poll = 0; poll < 4000 && sent.size() < 100; poll++)
+		{
+			size_t before = sent.size();
+			p3docdd.Process(&tm);
+			p3docdd.Update();
+			if (sent.size() > before) {
+				if (sent.size() < 100) { p3docdd.SetCommand(next); p3docdd.CommandExec(); }
+			}
+			else {
+				if (fake_ms == 5000) at_once = sent.size();
+				if (fake_ms == 5600) at_600 = sent.size();
+				fake_ms += 100;	// a poll that sent nothing: time goes on
+			}
+		}
+		printf("pacing: %zu blocks at once, %zu after 600 ms, 100 after %lu ms\n", at_once, at_600, fake_ms - 5000);
+		CHECK(at_once == 48, "pacing: %zu blocks sent before the clock moved (48 expected)", at_once);
+		CHECK(at_600 == 48 + 45, "pacing: %zu blocks after 600 ms (93 expected)", at_600);
+		CHECK(sent.size() == 100 && fake_ms - 5000 == 700, "pacing: 100 blocks after %lu ms (700 expected)", fake_ms - 5000);
+		int bad = -1;
+		for (size_t b = 0; b < sent.size() && bad < 0; b++)
+			if (sent[b][0] != audio_byte(1000 + (int)b, 0) || sent[b][2351] != audio_byte(1000 + (int)b, 2351)) bad = (int)b;
+		CHECK(bad < 0, "pacing: block %d out of order", bad);
+	}
+	// data blocks are not paced
+	fake_ms = 0;
+	do_read(150 + 20, 30, P3DO_FMT_DATA);
+	CHECK(sent.size() == 30, "pacing: data blocks held back (%zu sent)", sent.size());
+
 	printf(fails ? "MAIN TEST FAIL (%d)\n" : "MAIN TEST PASS\n", fails);
 	return fails != 0;
 }

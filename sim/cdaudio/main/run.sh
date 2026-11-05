@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Host test of Main_MiSTer support/3do/3docdd.cpp (CD-DA, raw blocks, subcode, TOC). Needs g++.
+# Host test of Main_MiSTer support/3do/3docdd.cpp (CD-DA, raw blocks, subcode, TOC, pacing). Needs g++.
 #   MAIN=/path/to/Main_MiSTer ./run.sh
 # Builds 3docdd.cpp with stubbed file/CHD access (stubs/), writes CUE/BIN/ISO images to a scratch
 # folder and checks every byte Main_MiSTer would send to the core. Prints MAIN TEST PASS or FAIL.
