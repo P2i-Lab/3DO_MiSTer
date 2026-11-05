@@ -35,8 +35,9 @@ It checks:
 
 Builds `support/3do/3docdd.cpp` from a Main_MiSTer checkout with stubbed file and CHD access,
 writes CUE/BIN and ISO images and checks every byte Main sends to the core: the TOC (control
-bytes 0x14/0x10, CUE FLAGS), CD-DA samples in big-endian order (BIN swapped, MOTOROLA not),
-track boundaries, raw data sectors (2352, 2340, and sync + header for ISO images), and the
-Q subcode (positions in BCD, CRC).
+bytes 0x14/0x10, CUE FLAGS), CD-DA samples in disc order (BIN as it is, MOTOROLA swapped),
+track boundaries, raw data sectors (2352, 2340, and sync + header for ISO images), the
+Q subcode (positions in BCD, CRC), and CD-DA sent at the speed of the disc (48 blocks ahead,
+then 75 per second of a clock the test sets).
 
     MAIN=/path/to/Main_MiSTer main/run.sh    # prints MAIN TEST PASS or MAIN TEST FAIL
