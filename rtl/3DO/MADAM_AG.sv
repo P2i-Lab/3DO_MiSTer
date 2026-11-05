@@ -57,7 +57,7 @@ module MADAM_AG
 	input AddrGenCtl_t DMA_CTL,
 	output reg         PBI,
 	output reg         REG_OVF,
-	output reg         REG_ZERO,
+	output             REG_ZERO,
 	
 	//SYSRAM
 	output     [23: 2] LA,
@@ -256,17 +256,21 @@ module MADAM_AG
 		end
 	end 
 	
+	//REG_ZERO: the last value written to the DMA stack is zero. The value is kept and tested after the
+	//register (same result every cycle): the 22-bit test was the end of a 10 ns path from the DDR3 read cache.
+	bit  [23: 2] REG_LAST;
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
-			REG_ZERO <= 0;
+			REG_LAST <= 22'h000001;
 		end
 		else if (EN && CE_R) begin
 			if (DMA_STACK_WE) begin
-				REG_ZERO <= ~|DMA_STACK_IN;
+				REG_LAST <= DMA_STACK_IN;
 				REG_OVF <= DMA_STACK_IN[23];
 			end
 		end
-	end 
+	end
+	assign REG_ZERO = ~|REG_LAST;
 	
 	BusState_t BUS_STATE_FF;
 	always @(posedge CLK or negedge RST_N) begin		
