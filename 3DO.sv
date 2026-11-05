@@ -447,12 +447,13 @@ module emu
 //		end
 //	end
 	
+	wire         WDOG_RST;
 	reg reset = 1, mem_rst = 1;
 	always @(posedge clk_sys) begin
 		reg        reset_cond,reset_cond_old;
 		reg [12:0] reset_delay = '0;
 		
-		reset_cond = RESET | status[0] | buttons[1];
+		reset_cond = RESET | status[0] | buttons[1] | WDOG_RST;
 		reset_cond_old <= reset_cond;
 		if (reset_cond && !reset_cond_old) reset_delay <= '1;
 		else if (reset_delay) reset_delay <= reset_delay - 13'd1;
@@ -460,6 +461,13 @@ module emu
 		reset   <= reset_cond | |reset_delay | bios_download | kanji_download;
 		mem_rst <= reset_cond | |reset_delay;
 	end	
+	
+	//A watchdog reset restarts the console with the disc that is in the drive
+	reg wdog_hold = 0;
+	always @(posedge clk_sys) begin
+		if (WDOG_RST) wdog_hold <= 1;
+		else if (!reset) wdog_hold <= 0;
+	end
 	
 
 `ifdef DEBUG
@@ -730,6 +738,7 @@ module emu
 		.SRAMR_N(SRAMR_N),
 		
 		.ROM_SEL(ROM_SEL),
+		.WDOG_RST(WDOG_RST),
 		
 		.CDDI(CDDI),
 		.CDDO(CDDO),
@@ -792,7 +801,8 @@ module emu
 	
 		.EXT_BUS(EXT_BUS),
 		
-		.TRAY_OPEN(1'b0)
+		.TRAY_OPEN(1'b0),
+		.HOLD_DISC(wdog_hold | WDOG_RST)
 	);
 	
 	
