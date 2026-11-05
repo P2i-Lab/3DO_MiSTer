@@ -10,7 +10,12 @@
 //    2. yellow  VRAM in DDR3: random access not in the cache (ddr_busy)
 //    3. cyan    VRAM page transfer (SPORT) still running (VRAM_LRDY/RRDY low)
 //    4. green   BIOS ROM or NVRAM access in DDR3 (ddr_io_busy)
-//  A bar is 256 pixels long for 100 %, with grey marks every 25 %; a white
+//    5. magenta longest single pause of the frame, 1 pixel per microsecond
+//               (0-255 us), light marks at 90 and 181 us: the DSP input FIFOs
+//               hold 8 samples (181 us at 44.1 kHz) and the DMA that refills
+//               them stops during a pause while the DSP keeps playing, so
+//               longer pauses can make the sound crackle.
+//  Bars 1-4 are 256 pixels long for 100 %, with grey marks every 25 %; a white
 //  mark holds the highest value of the last 64 frames.
 //============================================================================
 module P3DO_PAUSE_METER
@@ -41,7 +46,11 @@ module P3DO_PAUSE_METER
 	reg  [23:0] cnt[4];
 	reg  [23:0] snap_frame;
 	reg  [23:0] snap[4];
-	reg  [ 7:0] bar[4], peak[4];
+	reg  [ 7:0] bar[5], peak[5];
+
+	// Longest pause: microseconds of the pause in progress (50 clk_sys cycles), longest of the frame
+	reg  [ 5:0] us_pre;
+	reg  [ 7:0] run_us, max_us;
 	reg  [ 5:0] peak_age;
 	reg         shadow_tgl;
 
@@ -54,6 +63,18 @@ module P3DO_PAUSE_METER
 	wire [24:0] div_sub = div_rem2 - {1'b0, snap_frame};
 
 	always @(posedge CLK) begin
+		if (PAUSE) begin
+			if (us_pre == 6'd49) begin
+				us_pre <= 6'd0;
+				if (~&run_us) run_us <= run_us + 8'd1;
+			end
+			else us_pre <= us_pre + 6'd1;
+		end
+		else begin
+			us_pre <= 6'd0;
+			run_us <= 8'd0;
+		end
+
 		if (frame_end) begin
 			snap_frame <= frame_cnt;
 			snap[0] <= cnt[0];
@@ -67,8 +88,11 @@ module P3DO_PAUSE_METER
 			cnt[3] <= {23'd0, PAUSE & IO_BUSY};
 			div_idx <= 3'd0;
 			div_bit <= 4'd0;
+			bar[4] <= max_us > run_us ? max_us : run_us;
+			max_us <= run_us;	// a pause in progress counts in the new frame too
 		end
 		else begin
+			if (run_us > max_us) max_us <= run_us;
 			if (~&frame_cnt) frame_cnt <= frame_cnt + 24'd1;
 			if (PAUSE && ~&cnt[0]) cnt[0] <= cnt[0] + 24'd1;
 			if (PAUSE && DDR_BUSY && ~&cnt[1]) cnt[1] <= cnt[1] + 24'd1;
@@ -95,7 +119,7 @@ module P3DO_PAUSE_METER
 				end
 				else begin
 					// count == frame gives 256 * frame / frame: shown as 255
-					bar[div_idx[1:0]] <= (snap[div_idx[1:0]] >= snap_frame && snap_frame != 0) ? 8'd255 : div_q;
+					bar[{1'b0, div_idx[1:0]}] <= (snap[div_idx[1:0]] >= snap_frame && snap_frame != 0) ? 8'd255 : div_q;
 					div_bit <= 4'd0;
 					div_idx <= div_idx + 3'd1;
 				end
@@ -106,7 +130,7 @@ module P3DO_PAUSE_METER
 		if (div_idx == 3'd4) begin
 			div_idx <= 3'd5;
 			peak_age <= peak_age + 6'd1;
-			for (int i = 0; i < 4; i++) begin
+			for (int i = 0; i < 5; i++) begin
 				if (bar[i] > peak[i] || peak_age == 6'd63) peak[i] <= bar[i];
 			end
 			shadow_tgl <= ~shadow_tgl;
@@ -117,12 +141,12 @@ module P3DO_PAUSE_METER
 	// Draw (VCLK domain)
 	//------------------------------------------------------------------------
 	reg  [ 2:0] tgl_sync, en_sync;
-	reg  [ 7:0] vbar[4], vpeak[4];
+	reg  [ 7:0] vbar[5], vpeak[5];
 	always @(posedge VCLK) begin
 		tgl_sync <= {tgl_sync[1:0], shadow_tgl};
 		en_sync <= {en_sync[1:0], ENABLE};
 		if (tgl_sync[2] != tgl_sync[1]) begin	// the bars are stable for a whole frame after the toggle
-			for (int i = 0; i < 4; i++) begin
+			for (int i = 0; i < 5; i++) begin
 				vbar[i] <= bar[i];
 				vpeak[i] <= peak[i];
 			end
@@ -148,17 +172,18 @@ module P3DO_PAUSE_METER
 	end
 
 	wire [ 7:0] bx = x[7:0] - X0[7:0];	// position in the bar (only used inside it)
-	wire [ 4:0] by = y[4:0] - Y0[4:0];
-	wire [ 1:0] row = by[4:3];
-	wire        in_box = x + 10'd1 >= X0 && x <= X0 + 10'd256 && y + 10'd1 >= Y0 && y < Y0 + 10'd31;
-	wire        in_bar = x >= X0 && x < X0 + 10'd256 && y >= Y0 && y < Y0 + 10'd32 && by[2:0] < 3'd6;
+	wire [ 5:0] by = y[5:0] - Y0[5:0];
+	wire [ 2:0] row = by[5:3];
+	wire        in_box = x + 10'd1 >= X0 && x <= X0 + 10'd256 && y + 10'd1 >= Y0 && y < Y0 + 10'd39;
+	wire        in_bar = x >= X0 && x < X0 + 10'd256 && y >= Y0 && y < Y0 + 10'd40 && by[2:0] < 3'd6;
 
-	function automatic [23:0] Color(input [1:0] i);
+	function automatic [23:0] Color(input [2:0] i);
 		case (i)
-			2'd0: Color = 24'hFF4040;
-			2'd1: Color = 24'hFFD000;
-			2'd2: Color = 24'h00D0FF;
-			2'd3: Color = 24'h40FF40;
+			3'd0: Color = 24'hFF4040;
+			3'd1: Color = 24'hFFD000;
+			3'd2: Color = 24'h00D0FF;
+			3'd3: Color = 24'h40FF40;
+			default: Color = 24'hFF40FF;
 		endcase
 	endfunction
 
@@ -168,6 +193,7 @@ module P3DO_PAUSE_METER
 		if (in_bar) begin
 			if (bx[7:0] == vpeak[row] && vpeak[row] != 8'd0) ovl = 24'hFFFFFF;
 			else if (bx[7:0] < vbar[row]) ovl = Color(row);
+			else if (row == 3'd4 && (bx[7:0] == 8'd90 || bx[7:0] == 8'd181)) ovl = 24'hB0B0B0;
 			else if (bx[5:0] == 6'd63) ovl = 24'h707070;
 		end
 	end
