@@ -1319,6 +1319,16 @@ module CLIO
 	bit          EIFIFO_OE_LATCH[13];
 	bit          EOFIFO_WE_LATCH[4];
 	wire EIFIFO_BUF_WE = (DSP_ADDR[7:0] >= 9'h070 && DSP_ADDR[7:0] <= 9'h07E && DSP_EIRAM_WE);//0x070-0x07E
+	//A DSP read of an input FIFO (bump 0x0F0-0x0FC, read 0x070-0x07C) returns the current head,
+	//EIFIFO_Q, read in the DSP cycle itself. It used to return EIFIFO_BUF loaded by the previous
+	//read, i.e. the sample before the head: instruments that bump the left then the right sample of
+	//a stereo frame (the BIOS audio CD player's fixedstereo16swap.dsp) got their channels swapped.
+	//The head must not be copied between the DSP cycles: the FIFO is an MLAB written in the cycle
+	//after the CE_R edge that registers the write, so a copy taken then can catch the old content of
+	//the slot being written when the FIFO was empty (a sample one lap old: a crackle on hardware,
+	//invisible in simulation). In the DSP cycle the MLAB is stable, and CLIO_DSP_FIFO already
+	//bypasses a write to the head in the same cycle. A value written by the CPU is kept in
+	//EIFIFO_BUF until the DSP has read it.
 	bit  [15: 0] EIFIFO_BUF[13];
 	bit          EIFIFO_CPU[13];	//EIFIFO_BUF holds a value written by the CPU, not read yet by the DSP
 //	bit          EIFIFO_BUF_EMPTY[13];
@@ -1361,17 +1371,6 @@ module CLIO
 					EIFIFO_CPU[DSP_ADDR[3:0]] <= 1;
 //					EIFIFO_BUF_EMPTY[DSP_ADDR[3:0]] <= 0;
 				end
-			end
-		end
-		else if (EN) begin
-			//Between the DSP cycles (CE_R), EIFIFO_BUF takes the head of each input FIFO, so that a
-			//DSP read (bump 0x0F0-0x0FC, read 0x070-0x07C) returns the current head. It used to be
-			//loaded by the read itself, which handed the DSP the previous sample: instruments that
-			//bump the left then the right sample of a stereo frame (the BIOS audio CD player's
-			//fixedstereo16swap.dsp) got their channels swapped. A value written by the CPU is kept
-			//until the DSP has read it.
-			for (int i = 0; i < 13; i++) begin
-				if (!EIFIFO_CPU[i]) EIFIFO_BUF[i] <= EIFIFO_Q[i];
 			end
 		end
 	end
@@ -1437,7 +1436,7 @@ module CLIO
 	assign DSP_EI_DATA = EIRAM_OE ? EIRAM_DATA : 
 						      EIFIFO_STAT_OE ? {12'b0000_0000_0000,EIFIFO_STAT[DSP_EI_ADDR[3:0]]} :
 						      EOFIFO_STAT_OE ? {12'b0000_0000_0000,EOFIFO_STAT[DSP_EI_ADDR[1:0]]} :
-						      EIFIFO_OE || EIFIFO_OE2 ? EIFIFO_BUF[DSP_EI_ADDR[3:0]] :
+						      EIFIFO_OE || EIFIFO_OE2 ? (EIFIFO_CPU[DSP_EI_ADDR[3:0]] ? EIFIFO_BUF[DSP_EI_ADDR[3:0]] : EIFIFO_Q[DSP_EI_ADDR[3:0]]) :
 								NOISE_OE ? NOISE[15:0] :
 						      AUDLOCK_OE ? {AUDLOCK,15'b000_0000_0000_0000} :
 						      SEMASTAT_OE ? {12'b0000_0000_0000,DSP_SEMAPHORE_STAT} :
