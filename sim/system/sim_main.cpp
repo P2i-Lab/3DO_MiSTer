@@ -10,6 +10,7 @@
 //   --press F1-F2:BTNS  hold buttons from frame F1 to F2; BTNS: A B C P X L R T UP DOWN LEFT RIGHT,
 //                       joined with '+' (e.g. 300-310:A, 400-405:UP+P)
 //   --swap F:FILE       insert another disc image at frame F (OSD "Insert Disk")
+//   --reset F           OSD "Reset" at frame F (status bit 0 pulse and p3do_reset(), as Main's menu)
 //   --kanji FILE        kanji ROM: Main_MiSTer takes kanji.rom from the folder of the disc
 //   --save FILE         start with this .sav (copied to DIR/saves)
 //   --max-wall S        stop after S seconds of real time
@@ -505,6 +506,7 @@ struct Press { int f0, f1; uint32_t mask; };
 struct Swap { int f; std::string path; bool done; };
 static std::vector<Press> presses;
 static std::vector<Swap> swaps;
+static std::vector<int> osd_resets;
 
 static uint32_t button_mask(const std::string &s)
 {
@@ -534,6 +536,14 @@ static void events()
 	uint32_t m = 0;
 	for (auto &p : presses) if (frame_no >= p.f0 && frame_no <= p.f1) m |= p.mask;
 	hps.joy0 = m;
+	for (int f : osd_resets) {
+		if (frame_no == f) {
+			printf("[sim] frame %d: OSD reset\n", frame_no);
+			p3do_reset();
+			user_io_status_set("[0]", 1, 0);
+			user_io_status_set("[0]", 0, 0);	// at once, as Main's menu: the core stretches the pulse
+		}
+	}
 	for (auto &s : swaps) {
 		if (!s.done && frame_no >= s.f) {
 			s.done = true;
@@ -612,6 +622,7 @@ int main(int argc, char **argv)
 			if (sscanf(v.c_str(), "%d-%d:%255s", &f0, &f1, btn) != 3) { fprintf(stderr, "--press F1-F2:BUTTONS\n"); return 2; }
 			presses.push_back({ f0, f1, button_mask(btn) });
 		}
+		else if (a == "--reset") osd_resets.push_back(atoi(next().c_str()));
 		else if (a == "--swap") {
 			std::string v = next();
 			size_t c = v.find(':');

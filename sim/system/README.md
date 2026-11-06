@@ -12,8 +12,8 @@
   Main_MiSTer clone (`support/3do`, compiled unchanged; file access, SPI and timers in
   `main_stubs`): BIOS and kanji ROM loading, CD drive commands and sectors, save file.
 
-The pictures are written as PNG, the sound as WAV; controller inputs and disc swaps are
-scripted by frame number.
+The pictures are written as PNG, the sound as WAV; controller inputs (`--press`), disc swaps
+(`--swap`, as the OSD "Load CD") and OSD resets (`--reset`) are scripted by frame number.
 
 ```
 MAIN_REPO=/path/to/Main_MiSTer MAIN_REF=branch ./run.sh \
