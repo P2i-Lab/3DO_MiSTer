@@ -42,6 +42,10 @@ Debugging aids (options of the simulator):
   them is the one of the previous XBUS read;
 - `+madread=F1 +madread_end=F2`: CPU reads of MADAM registers (DMA stack, cel engine) in frames
   F1..F2, with the value returned;
+- `+dspei=F1 +dspei_end=F2 [+dspei_mask=H]`: in frames F1..F2, every DSP read of the input FIFOs
+  of the channels in the mask (default channel 0: bump 0xF0+n, read 0x70+n, status 0xD0+n) with
+  the DSP program counter, the value the DSP gets, the FIFO count and head, and the DMA words
+  written into those FIFOs (at most 30000 lines; the status polls of an idle channel count too);
 - `+fifo_stats`: every 60 frames, the DSP reads of each input FIFO and the ones that found it
   empty (underruns, heard as clicks), with the longest system pause.
 

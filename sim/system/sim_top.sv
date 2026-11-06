@@ -235,6 +235,40 @@ module sim_top
 		end
 	end
 
+	// +dspei=F1 +dspei_end=F2 [+dspei_mask=H]: DSP reads of the input FIFOs of the channels in the
+	// mask (default channel 0) in frames F1..F2: bump 0xF0+n, read 0x70+n, status 0xD0+n, with the
+	// value the DSP gets, the FIFO count and head, and the DMA words written into those FIFOs
+	int dspei_f1 = -1, dspei_f2 = -1, dspei_n = 0, dspei_mask = 1;
+	longint dspei_cyc = 0;
+	always @(posedge clk_sys) dspei_cyc <= dspei_cyc + 1;
+	initial begin
+		if (!$value$plusargs("dspei=%d", dspei_f1)) dspei_f1 = -1;
+		if (!$value$plusargs("dspei_end=%d", dspei_f2)) dspei_f2 = dspei_f1;
+		if (!$value$plusargs("dspei_mask=%h", dspei_mask)) dspei_mask = 1;
+	end
+	always @(posedge clk_sys) begin
+		bit [7:0] a;
+		bit [3:0] ch;
+		if (dspei_f1 >= 0 && vframe >= dspei_f1 && vframe <= dspei_f2 && dspei_n < 30000 &&
+		    emu.p3do.clio.EN && emu.p3do.clio.CE_R) begin
+			a = emu.p3do.clio.DSP_EI_ADDR;
+			ch = a[3:0];
+			if (emu.p3do.clio.DSP_EN && emu.p3do.clio.DSP_EI_OE && ch < 13 && dspei_mask[ch] &&
+			    (a[7:4] == 4'hF || a[7:4] == 4'h7 || a[7:4] == 4'hD)) begin
+				dspei_n++;
+				$display("[dspei %0d] pc %03X %s ch%0d -> %04X  count %0d head %04X", dspei_cyc,
+				         emu.p3do.clio.DSP_PC, a[7:4] == 4'hF ? "bump" : a[7:4] == 4'h7 ? "read" : "stat",
+				         ch, emu.p3do.clio.DSP_EI_DATA, emu.p3do.clio.EIFIFO_COUNT[ch], emu.p3do.clio.EIFIFO_Q[ch]);
+			end
+			for (int i = 0; i < 13; i++)
+				if (dspei_mask[i] && emu.p3do.clio.EIFIFO_WRREQ[i] && emu.p3do.clio.IO_EN) begin
+					dspei_n++;
+					$display("[dspei %0d] dma ch%0d <- %04X  count %0d", dspei_cyc, i, emu.p3do.clio.EIFIFO_DATA,
+					         emu.p3do.clio.EIFIFO_COUNT[i]);
+				end
+		end
+	end
+
 	// +madread=F1 +madread_end=F2: CPU reads of MADAM registers (DMA stack, cel engine...) in frames
 	// F1..F2, with the value MADAM returns
 	int madread_f1 = -1, madread_f2 = -1, madread_n = 0;
