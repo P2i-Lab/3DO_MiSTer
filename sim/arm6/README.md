@@ -34,6 +34,19 @@ Linux or WSL2 with Verilator 5 and the ARM bare-metal binutils, e.g. on Ubuntu 2
 | `t_irq` | IRQ and FIQ masking, entry state (mode, I/F, SPSR, R14), banked FIQ R8-R12, FIQ before IRQ; an IRQ, a FIQ or both at each of 200 cycles of a workload with every kind of instruction, which must give the same result as without interrupt |
 | `repro/issue*` | the programs from issues #10, #11 and #12, unchanged |
 
+## Status on the current main
+
+On srg320's main (2cf0583) with the two RTL commits of this branch (immediate LSR #0, unaligned
+LDR/SWP rotation), 8 of the 12 programs pass. The other 4 need canxin121's open pull requests:
+
+| Program | Fails on | Fixed by |
+|---|---|---|
+| `t_msr` | `MSR SPSR_flg, Rm` also writes the control bits | MiSTer-devel/3DO_MiSTer#18 |
+| `t_irq`, `t_swi` | their setup uses `MSR CPSR_flg, #imm`, decoded as an illegal instruction | MiSTer-devel/3DO_MiSTer#19 |
+| `t_regress` (case 22) | LSL/LSR by a register holding 64 or more sets C | MiSTer-devel/3DO_MiSTer#17 |
+
+`fuzz.py` also sets the flags with `MSR CPSR_flg, #imm`, so its programs need #19 too.
+
 ## Differential fuzzing
 
 `fuzz.py` runs random programs on the RTL and on [Unicorn](https://www.unicorn-engine.org/)
