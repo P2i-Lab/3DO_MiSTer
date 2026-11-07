@@ -17,6 +17,7 @@ int FileClose(fileTYPE *file);
 int FileSeek(fileTYPE *file, __off64_t offset, int origin);
 int FileReadAdv(fileTYPE *file, void *pBuffer, int length, int failres = 0);
 int FileLoad(const char *name, void *pBuffer, int size);
+int FileSave(const char *name, void *pBuffer, int size);
 const char *getFullPath(const char *name);
 void FileGenerateSavePath(const char *name, char* out_name, int ext_replace = 1);
 const char *HomeDir(const char *name = 0);

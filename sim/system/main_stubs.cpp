@@ -54,6 +54,15 @@ int FileLoad(const char *name, void *buf, int size)
 	return n;
 }
 
+int FileSave(const char *name, void *buf, int size)
+{
+	FILE *f = fopen(name, "wb");
+	if (!f) return 0;
+	int n = (int)fwrite(buf, 1, size, f);
+	fclose(f);
+	return n == size;
+}
+
 const char *getFullPath(const char *name) { return name; }
 
 // saves/3DO/<image name>.sav

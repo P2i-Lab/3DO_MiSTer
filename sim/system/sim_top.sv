@@ -284,6 +284,59 @@ module sim_top
 		end
 	end
 
+	// +se_trace=F1 +se_trace_end=F2 [+se_max=N]: cel engine in frames F1..F2: each CCB it loads (address,
+	// flags, next, source, position, PRE0, PRE1; at most N lines, default 3000) and, once per frame, the
+	// share of the cycles it runs (SPRON), the CCBs loaded, the source words read, its frame buffer reads
+	// and writes, and the cel it is on (flags, PRE0, PRE1, state, line). While it runs the CPU only gets
+	// the bus for the interrupts: a cel list that does not end stops the game.
+	int se_f1 = -1, se_f2 = -1, se_n = 0, se_max = 3000;
+	int se_on = 0, se_ccb = 0, se_rd = 0, se_wr = 0, se_cyc = 0, se_src = 0;
+	bit se_open = 0;
+	initial begin
+		if (!$value$plusargs("se_trace=%d", se_f1)) se_f1 = -1;
+		if (!$value$plusargs("se_trace_end=%d", se_f2)) se_f2 = se_f1;
+		if (!$value$plusargs("se_max=%d", se_max)) se_max = 3000;
+	end
+	always @(posedge clk_sys) begin
+		bit vbl_o;
+		vbl_o <= emu.VBL_N;
+		if (se_f1 >= 0 && vframe >= se_f1 && vframe <= se_f2) begin
+			se_cyc++;
+			if (emu.p3do.madam.SE.SPRON) se_on++;
+			if (emu.p3do.madam.SE.EN && emu.p3do.madam.SE.CE_R) begin
+				if (emu.p3do.madam.SE.PIX_READ1) se_rd++;
+				if (emu.p3do.madam.SE.PIX_WRITE) se_wr++;
+				if (emu.p3do.madam.SE.PDATA_FETCH || emu.p3do.madam.SE.POFFS_FETCH) se_src++;
+				case (emu.p3do.madam.SE.BUS_STATE_FF)
+					P3DO_PKG::SCOB_FLAG1: begin
+						se_ccb++;
+						if (se_open) begin $write("\n"); se_open = 0; end
+						if (se_n < se_max) begin
+							se_n++;
+							se_open = 1;
+							$write("[se f%0d] ccb %06X flags %08X", vframe, {emu.p3do.madam.SE.MADR, 2'b00}, emu.p3do.madam.SE.MDTI);
+						end
+					end
+					P3DO_PKG::SCOB_NEXT1:   if (se_open) $write(" next %08X", emu.p3do.madam.SE.MDTI);
+					P3DO_PKG::SCOB_SOURCE1: if (se_open) $write(" src %08X", emu.p3do.madam.SE.MDTI);
+					P3DO_PKG::SCOB_XPOS1:   if (se_open) $write(" x %08X", emu.p3do.madam.SE.MDTI);
+					P3DO_PKG::SCOB_YPOS1:   if (se_open) $write(" y %08X", emu.p3do.madam.SE.MDTI);
+					P3DO_PKG::SCOB_PRE01:   if (se_open) $write(" pre0 %08X", emu.p3do.madam.SE.MDTI);
+					P3DO_PKG::SCOB_PRE11:   if (se_open) $write(" pre1 %08X", emu.p3do.madam.SE.MDTI);
+					default: ;
+				endcase
+			end
+			if (vbl_o && !emu.VBL_N) begin
+				if (se_open) begin $write("\n"); se_open = 0; end
+				$display("[se f%0d] on %0d%%  ccbs %0d  src words %0d  fb reads %0d writes %0d | cel flags %08X pre0 %08X pre1 %08X state %0d line %0d",
+				         vframe, se_cyc ? 100 * se_on / se_cyc : 0, se_ccb, se_src, se_rd, se_wr,
+				         emu.p3do.madam.SE.SCOB_FLAG, emu.p3do.madam.SE.SCOB_PRE0, emu.p3do.madam.SE.SCOB_PRE1,
+				         emu.p3do.madam.SE.MAIN_ST, emu.p3do.madam.SE.LINE_CNT);
+				se_on = 0; se_ccb = 0; se_rd = 0; se_wr = 0; se_cyc = 0; se_src = 0;
+			end
+		end
+	end
+
 	// +cd_trace: commands of the 3DO OS to the drive, requests of the drive to Main_MiSTer
 	bit cd_trace = 0;
 	longint sys_cycles = 0;

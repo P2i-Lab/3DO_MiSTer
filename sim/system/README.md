@@ -40,6 +40,11 @@ Debugging aids (options of the simulator):
   ARM announces before an internal cycle); `+ioread_lo=H +ioread_hi=H` keep a range of
   registers (hex offsets). XBUS registers (0x400 and up) answer later: the value printed for
   them is the one of the previous XBUS read;
+- `+se_trace=F1 +se_trace_end=F2 [+se_max=N]`: cel engine in frames F1..F2: each CCB it loads
+  (address, flags, next, source, position, PRE0, PRE1) and, per frame, the share of the time it runs,
+  the CCBs loaded, the source words read, its frame buffer reads and writes, and the cel it is on
+  (flags, PRE0, PRE1, state, line). While it runs, the CPU only gets the bus for the interrupts: a
+  cel list that never ends stops the game;
 - `+madread=F1 +madread_end=F2`: CPU reads of MADAM registers (DMA stack, cel engine) in frames
   F1..F2, with the value returned;
 - `+dspei=F1 +dspei_end=F2 [+dspei_mask=H]`: in frames F1..F2, every DSP read of the input FIFOs
