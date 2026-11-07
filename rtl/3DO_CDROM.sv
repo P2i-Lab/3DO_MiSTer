@@ -24,7 +24,8 @@ module P3DO_CDROM
 	
 	inout      [35: 0] EXT_BUS,
 	
-	input              TRAY_OPEN
+	input              TRAY_OPEN,
+	input              HOLD_DISC	//reset of the console that keeps the disc in the drive (watchdog)
 	
 `ifdef DEBUG
 	                  ,
@@ -82,6 +83,7 @@ module P3DO_CDROM
 	bit  [11: 0] CDD_DATA_ADDR;
 	bit          CDD_BLOCK_READY;
 	bit          CDD_IS_LOADED;
+	bit          CDD_HAD_DISC = 0;
 	always @(posedge CLK) begin
 		bit         RST_N_OLD;
 		bit         CDD_DTEN_OLD,CDD_DIEN_OLD;
@@ -89,17 +91,23 @@ module P3DO_CDROM
 		RST_N_OLD <= RST_N;
 		CDD_DTEN_OLD <= CDD_DTEN;
 		CDD_DIEN_OLD <= CDD_DIEN;
-		if ((!RST_N && RST_N_OLD) || (CDD_DIEN && !CDD_DIEN_OLD)) begin
+		if ((!RST_N && RST_N_OLD && !HOLD_DISC) || (CDD_DIEN && !CDD_DIEN_OLD)) begin
 			CDD_IS_LOADED <= 0;
 		end
 		
 		CDD_BLOCK_READY <= 0;
+		CDMDCHG <= 0;
 		if (CDD_WR) begin
 			CDD_DATA_ADDR <= CDD_DATA_ADDR + 12'd1;
 `ifdef DEBUG
 			if (CDD_DTEN) DBG_CRC <= CDD_DATA;
 `endif
-			if (CDD_DIEN && CDD_DATA_ADDR == 12'h3FF) CDD_IS_LOADED <= 1;
+			if (CDD_DIEN && CDD_DATA_ADDR == 12'h3FF) begin
+				CDD_IS_LOADED <= 1;
+				//New disc while the console runs (no reset) and a disc was already loaded: media change pulse (hot swap)
+				CDMDCHG <= RST_N && CDD_HAD_DISC;
+				CDD_HAD_DISC <= 1;
+			end
 		end
 		if (!CDD_DTEN && CDD_DTEN_OLD) begin
 			CDD_BLOCK_READY <= 1;
@@ -235,7 +243,7 @@ module P3DO_CDROM
 		if (!RST_N) begin
 			IO_ST <= IO_IDLE;
 			COMMAND <= '{8{'0}};
-			STATUS <= 8'h81;
+			STATUS <= CDD_IS_LOADED ? 8'hC1 : 8'h81;	//a disc kept through the reset is still in
 			ERROR <= ERROR_NO_ERR;
 			
 			CMD_DATA_CNT <= '0;
@@ -243,7 +251,6 @@ module P3DO_CDROM
 			DATA_CNT <= '0;
 			ST_EN <= 0;
 			DT_EN <= 0;
-			CDMDCHG <= 0;
 			ST_DELAY_CNT <= '1;
 			{CDD_IS_LOADED_OLD,TRAY_OPEN_OLD} <= '0;
 			
@@ -270,7 +277,6 @@ module P3DO_CDROM
 			DATA_CNT <= '0;
 			ST_EN <= 0;
 			DT_EN <= 0;
-			CDMDCHG <= 0;
 			{CDD_IS_LOADED_OLD,TRAY_OPEN_OLD} <= '0;
 			
 			CMD_ST <= CMD_IDLE;
@@ -841,12 +847,13 @@ module P3DO_CDROM
 			
 			CDD_IS_LOADED_OLD <= CDD_IS_LOADED;
 			if (CDD_IS_LOADED && !CDD_IS_LOADED_OLD) begin
-				CDMDCHG <= 1;
 				STATUS <= 8'hC1;
+			end
+			if (!CDD_IS_LOADED && CDD_IS_LOADED_OLD) begin
+				STATUS <= 8'h01;	//disc being replaced: door open, no disc
 			end
 			TRAY_OPEN_OLD <= TRAY_OPEN;
 			if (TRAY_OPEN && !TRAY_OPEN_OLD) begin
-				CDMDCHG <= 1;
 				STATUS <= 8'h01;
 			end
 		end

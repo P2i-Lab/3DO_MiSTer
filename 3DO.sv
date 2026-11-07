@@ -447,12 +447,13 @@ module emu
 //		end
 //	end
 	
+	wire         WDOG_RST;
 	reg reset = 1, mem_rst = 1;
 	always @(posedge clk_sys) begin
 		reg        reset_cond,reset_cond_old;
 		reg [12:0] reset_delay = '0;
 		
-		reset_cond = RESET | status[0] | buttons[1];
+		reset_cond = RESET | status[0] | buttons[1] | WDOG_RST;
 		reset_cond_old <= reset_cond;
 		if (reset_cond && !reset_cond_old) reset_delay <= '1;
 		else if (reset_delay) reset_delay <= reset_delay - 13'd1;
@@ -460,6 +461,13 @@ module emu
 		reset   <= reset_cond | |reset_delay | bios_download | kanji_download;
 		mem_rst <= reset_cond | |reset_delay;
 	end	
+	
+	//A watchdog reset restarts the console with the disc that is in the drive
+	reg wdog_hold = 0;
+	always @(posedge clk_sys) begin
+		if (WDOG_RST) wdog_hold <= 1;
+		else if (!reset) wdog_hold <= 0;
+	end
 	
 
 `ifdef DEBUG
@@ -521,7 +529,7 @@ module emu
 	DeathKeep (US): 0x250000/0x278000 (FMV only)
 	FIFA International Soccer (US, Korea): 0x2AC000/0x2D2000
 	Gex (US, EU): 0x25C800/0x282000/0x2A7800/0x2CD000 (FMV only)
-	Psychic Detective (US) (Disc 1): 0x28B800/0x2B1000
+	Psychic Detective (US) (Discs 1, 2 and 3, same program): 0x28B800/0x2B1000
 	Quarantine (US): 0x274BA4
 	Road & Track Presents - The Need for Speed (US, EU): 0x2AD000/0x2D3000
 	Seal of the Pharaoh (US): 0x270800/0x296000
@@ -537,6 +545,7 @@ module emu
 	reg  [ 3: 0] BRAM2_OFFS;//Block 0x20000
 	reg  [ 3: 0] BRAM1_OFFS;//Block 0x10000
 	reg          NEED_DSP_PAUSE;
+	reg          disc_new = 0;	//disc info received, settings not applied yet
 	always @(posedge clk_sys) begin
 		reg [31: 0] msf,id;
 	
@@ -554,27 +563,35 @@ module emu
 			if (ioctl_addr == 25'h45A) begin
 				id[15:0] <= {ioctl_data[7:0],ioctl_data[15:8]};
 			end 
-			if (ioctl_addr == 25'h480) begin
-				{BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h4,4'h6};
-				NEED_DSP_PAUSE <= 0;
-				if (id == 32'h29E4D882) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//3D Atlas (US)
-				if (id == 32'h274E924C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h2,4'h8};//Alone in the Dark (US)
-				if (id == 32'h0340842C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Cannon Fodder (US)
-				if (id == 32'h2D731C98) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//FIFA International Soccer (US, Korea)
-				if (id == 32'h2584F855) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 1)
-				if (id == 32'h031BED09) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US)
-				if (id == 32'h06DE0DC2) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Road & Track Presents - The Need for Speed (US, EU)
-				if (id == 32'h2D95DCB6) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Seal of the Pharaoh (US)
-				if (id == 32'h07732394) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h6,4'h4};//Space Hulk - Vengeance of the Blood Angels (US)
-				if (id == 32'h0387DF78) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h8,4'hA};//Bodyconscious Digital Rave! Part 1 - Shinjuku & Takasaki (Japan)
-				if (id == 32'h213128DD) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Live! 3DO Magazine CD-ROM 1 (Japan)
-				
-				if (id == 32'h25609184                       ) NEED_DSP_PAUSE <= 1;//Blade Force (US)
-				if (id == 32'h043DCD69 && msf == 32'h69026900) NEED_DSP_PAUSE <= 1;//Decathlon (US) (Unl)
-				if (id == 32'h0A9B739E                       ) NEED_DSP_PAUSE <= 1;//Killing Time (US) (RE1)
-				if (id == 32'h06065D10                       ) NEED_DSP_PAUSE <= 1;//Snow Job Starring Tracy Scoggins (US)
-				if (id == 32'h3AC732DE                       ) NEED_DSP_PAUSE <= 1;//BattleSport (USA) (Beta) (1995-09-22)
-			end
+			if (ioctl_addr == 25'h480) disc_new <= 1;
+		end
+		
+		//The settings of a disc apply from a console reset on: at once for a disc loaded with a reset,
+		//at the next reset for a disc swapped while the console runs (the boot ROM restarts the console
+		//through the watchdog when the title does not accept another disc)
+		if (disc_new && reset) begin
+			disc_new <= 0;
+			{BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h4,4'h6};
+			NEED_DSP_PAUSE <= 0;
+			if (id == 32'h29E4D882) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//3D Atlas (US)
+			if (id == 32'h274E924C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h2,4'h8};//Alone in the Dark (US)
+			if (id == 32'h0340842C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Cannon Fodder (US)
+			if (id == 32'h2D731C98) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//FIFA International Soccer (US, Korea)
+			if (id == 32'h2584F855) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 1)
+			if (id == 32'h3A43EB1B) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 2)
+			if (id == 32'h0EA661F9) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 3)
+			if (id == 32'h031BED09) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US)
+			if (id == 32'h06DE0DC2) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Road & Track Presents - The Need for Speed (US, EU)
+			if (id == 32'h2D95DCB6) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Seal of the Pharaoh (US)
+			if (id == 32'h07732394) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h6,4'h4};//Space Hulk - Vengeance of the Blood Angels (US)
+			if (id == 32'h0387DF78) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h8,4'hA};//Bodyconscious Digital Rave! Part 1 - Shinjuku & Takasaki (Japan)
+			if (id == 32'h213128DD) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Live! 3DO Magazine CD-ROM 1 (Japan)
+			
+			if (id == 32'h25609184                       ) NEED_DSP_PAUSE <= 1;//Blade Force (US)
+			if (id == 32'h043DCD69 && msf == 32'h69026900) NEED_DSP_PAUSE <= 1;//Decathlon (US) (Unl)
+			if (id == 32'h0A9B739E                       ) NEED_DSP_PAUSE <= 1;//Killing Time (US) (RE1)
+			if (id == 32'h06065D10                       ) NEED_DSP_PAUSE <= 1;//Snow Job Starring Tracy Scoggins (US)
+			if (id == 32'h3AC732DE                       ) NEED_DSP_PAUSE <= 1;//BattleSport (USA) (Beta) (1995-09-22)
 		end
 	end
 	
@@ -730,6 +747,7 @@ module emu
 		.SRAMR_N(SRAMR_N),
 		
 		.ROM_SEL(ROM_SEL),
+		.WDOG_RST(WDOG_RST),
 		
 		.CDDI(CDDI),
 		.CDDO(CDDO),
@@ -792,7 +810,8 @@ module emu
 	
 		.EXT_BUS(EXT_BUS),
 		
-		.TRAY_OPEN(1'b0)
+		.TRAY_OPEN(1'b0),
+		.HOLD_DISC(wdog_hold | WDOG_RST)
 	);
 	
 	
