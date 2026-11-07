@@ -250,10 +250,11 @@ module ARM6_CORE
 		SHIFT_A = DECI.DPCTL.SB ? IMM : RB_RBQ;
 		case (DECI.DPCTL.SHCTL)
 			SHFT_NONE:  begin SHIFT_SA = '0;                                             SHIFT_TYPE = 3'b000;            SHIFT_ZERO = 1; end
-			SHFT_CONST: begin SHIFT_SA = {2'b00,(EX_IC[11:5]==7'b00000_10),EX_IC[11:7]}; SHIFT_TYPE = {1'b1,EX_IC[6:5]}; SHIFT_ZERO = ~|EX_IC[11:7] & ~|EX_IC[6:5]; end
+			SHFT_CONST: begin SHIFT_SA = {2'b00,(EX_IC[11:5]==7'b00000_01 || EX_IC[11:5]==7'b00000_10),EX_IC[11:7]}; SHIFT_TYPE = {1'b1,EX_IC[6:5]}; SHIFT_ZERO = ~|EX_IC[11:7] & ~|EX_IC[6:5]; end
 			SHFT_REG:   begin SHIFT_SA = SHIFT_LATCH;                                    SHIFT_TYPE = {1'b0,EX_IC[6:5]}; SHIFT_ZERO = ~|SHIFT_LATCH; end
 			SHFT_ROT:   begin SHIFT_SA = {3'b000,EX_IC[11:8],1'b0};                      SHIFT_TYPE = 3'b011;            SHIFT_ZERO = ~|EX_IC[11:8]; end
 			SHFT_LSL2:  begin SHIFT_SA = 8'd2;                                           SHIFT_TYPE = 3'b000;            SHIFT_ZERO = 0; end
+			SHFT_BROT:  begin SHIFT_SA = {3'b000,BA,3'b000};                             SHIFT_TYPE = 3'b011;            SHIFT_ZERO = 0; end	//LDR/SWP word: ROR by 8*address[1:0]
 		endcase
 		
 		{SHIFT_C,SHIFT_RES} = Shifter(SHIFT_A, SHIFT_SA, SHIFT_TYPE, CPSR.C);
