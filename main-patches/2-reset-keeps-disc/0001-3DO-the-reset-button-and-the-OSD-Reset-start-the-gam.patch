@@ -1,0 +1,65 @@
+From aea8e54964d50ba720c260dbcc7868bee4bf7dcc Mon Sep 17 00:00:00 2001
+From: Harry Lasry <harrylasry@gmail.com>
+Date: Fri, 6 Nov 2026 07:14:54 +0400
+Subject: [PATCH] 3DO: the reset button and the OSD Reset start the game again
+
+The core's CD drive forgets its disc on every console reset and waits for
+Main to send one, as when a disc is loaded. After the OSD Reset or the
+reset button, p3do_reset() only set a flag nobody read, so the BIOS found
+an empty drive and showed its CD tray screen instead of starting the game
+again: the disc had to be loaded again.
+
+p3do_poll() now sends the info of the loaded disc again, with the console
+held in reset, after p3do_reset(). It runs after the reset pulse of the
+menu, which would clear the disc again. A disc loaded from the OSD sends
+its info in its own reset and clears the flag.
+
+Checked in the Verilator simulation of the 3DO core with this code: Doom,
+OSD Reset at frame 1000: the drive reports the disc (status 0xC1) and
+Doom starts again (the same pictures as its first start, 700 frames
+later); before, the drive reported no disc (0x81) and the BIOS showed its
+CD tray screen.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ support/3do/3do.cpp | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/support/3do/3do.cpp b/support/3do/3do.cpp
+index 0ff001d..e7325cf 100644
+--- a/support/3do/3do.cpp
++++ b/support/3do/3do.cpp
+@@ -20,6 +20,22 @@ void p3do_poll()
+ 	static unsigned long poll_timer = 0;
+ 	static uint8_t last_req = 255;
+ 
++	// A console reset (OSD Reset, reset button: p3do_reset) clears the disc of the core's drive, which waits
++	// for Main to send one. On a 3DO the disc stays in the drive: send it again with the console held in
++	// reset, so that the BIOS finds it and starts the game again. This runs after the reset pulse of the
++	// menu, which would clear the disc again.
++	if (need_reset)
++	{
++		static uint8_t info[2048];
++		need_reset = 0;
++		if (p3docdd.loaded && p3docdd.SendData && p3docdd.GetDiscInfo(info) > 0)
++		{
++			user_io_status_set("[0]", 1);
++			p3do_send_data(info, 2048, CD_INFO_IO_INDEX);
++			user_io_status_set("[0]", 0);
++		}
++	}
++
+ 	if (!poll_timer || CheckTimer(poll_timer))
+ 	{
+ 		poll_timer = GetTimer(0);
+@@ -178,6 +194,7 @@ void p3do_set_image(int num, const char *filename)
+ 		}
+ 	}
+ 
++	need_reset = 0;	// the disc info was just sent with the console in reset
+ 	user_io_status_set("[0]", 0);
+ }
+ 
+-- 
+2.56.0.windows.1
+

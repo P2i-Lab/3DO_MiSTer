@@ -1,0 +1,96 @@
+From c7c0836c4ee52f7e1c18a44c1cc8acc8d5fa4f61 Mon Sep 17 00:00:00 2001
+From: Harry Lasry <harrylasry@gmail.com>
+Date: Fri, 6 Nov 2026 00:30:18 +0400
+Subject: [PATCH 2/3] 3DO: CD-DA samples in disc order
+
+The 3DO drive returns digital audio blocks in disc order (little-endian
+samples) and the BIOS audio CD player swaps the bytes itself: it plays
+them with fixedstereo16swap.dsp, which byte-swaps each sample on the DSP
+(first sample of the frame to the left output, second to the right).
+Sending big-endian samples, as before, made the player output noise.
+
+BIN/WAVE tracks are now sent as they are; MOTOROLA tracks and CHD audio
+(stored big-endian; the PSX, Saturn and Mega CD code swaps it too) are
+byte-swapped.
+
+Checked in a Verilator simulation of the 3DO core with this code: the
+BIOS player (FZ-1 and FZ-10) plays a test CD (440 Hz left, 660 Hz right)
+cleanly. The Opera emulator swaps BIN audio the other way and plays the
+same disc as noise.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ support/3do/3do.h      |  2 +-
+ support/3do/3docdd.cpp | 28 ++++++++++++++++------------
+ 2 files changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/support/3do/3do.h b/support/3do/3do.h
+index 2f041e4..d32d7af 100644
+--- a/support/3do/3do.h
++++ b/support/3do/3do.h
+@@ -56,7 +56,7 @@ private:
+ 	int block_count;
+ 	int read_fmt;            // block format of the current read, from the core (READ command byte 7)
+ 	bool read_sub;           // the core also wants the 96 subcode bytes of each block
+-	bool audio_le[100];      // CD-DA track stored little-endian (BIN/WAVE): swapped to big-endian for the 3DO
++	bool audio_le[100];      // CD-DA track stored little-endian (BIN/WAVE): sent as it is (disc order)
+ 	uint8_t track_flags[100];// CUE FLAGS: control bits of the track (0x01 pre-emphasis, 0x02 copy permitted, 0x08 4 channels)
+ 	uint8_t stat[8];
+ 	uint8_t comm[8];
+diff --git a/support/3do/3docdd.cpp b/support/3do/3docdd.cpp
+index d0e898c..0e96484 100644
+--- a/support/3do/3docdd.cpp
++++ b/support/3do/3docdd.cpp
+@@ -753,10 +753,21 @@ int p3docdd_t::DataSectorSend(uint8_t* header)
+ 	return 0;
+ }
+ 
++static void p3do_swap_samples(uint8_t *buf)
++{
++	for (int i = 0; i < 2352; i += 2)
++	{
++		uint8_t t = buf[i];
++		buf[i] = buf[i + 1];
++		buf[i + 1] = t;
++	}
++}
++
+ // The raw 2352-byte sector at this->lba, as the drive returns it in raw or digital audio mode.
+-// CD-DA samples go to the 3DO big-endian: CHD stores them so, BIN/WAVE tracks are byte-swapped
+-// (as the Opera emulator does). Sectors of 2048/2336-byte images get a sync pattern and a header,
+-// with zero EDC/ECC. Gaps and the lead-out read as silence.
++// CD-DA samples go to the 3DO in disc order (little-endian), as the drive returns them: the BIOS
++// audio CD player swaps the bytes itself (fixedstereo16swap.dsp). BIN/WAVE tracks are sent as they
++// are; MOTOROLA tracks and CHD audio (stored big-endian) are byte-swapped. Sectors of 2048/2336-byte
++// images get a sync pattern and a header, with zero EDC/ECC. Gaps and the lead-out read as silence.
+ void p3docdd_t::ReadRawSector(uint8_t *buf)
+ {
+ 	cd_track_t *trk = &this->toc.tracks[this->track];
+@@ -783,6 +794,7 @@ void p3docdd_t::ReadRawSector(uint8_t *buf)
+ 	if (this->toc.chd_f)
+ 	{
+ 		mister_chd_read_sector(this->toc.chd_f, lba + trk->offset, offs, 0, size, buf, this->chd_hunkbuf, &this->chd_hunknum);
++		if (trk->type == TT_CDDA) p3do_swap_samples(buf);
+ 	}
+ 	else
+ 	{
+@@ -790,15 +802,7 @@ void p3docdd_t::ReadRawSector(uint8_t *buf)
+ 		FileSeek(&trk->f, pos, SEEK_SET);
+ 		FileReadAdv(&trk->f, buf + offs, size);
+ 
+-		if (trk->type == TT_CDDA && this->audio_le[this->track])
+-		{
+-			for (int i = 0; i < 2352; i += 2)
+-			{
+-				uint8_t t = buf[i];
+-				buf[i] = buf[i + 1];
+-				buf[i + 1] = t;
+-			}
+-		}
++		if (trk->type == TT_CDDA && !this->audio_le[this->track]) p3do_swap_samples(buf);
+ 	}
+ }
+ 
+-- 
+2.56.0.windows.1
+

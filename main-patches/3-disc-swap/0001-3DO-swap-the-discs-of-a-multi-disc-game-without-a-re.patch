@@ -1,0 +1,47 @@
+From cec45775bf075e33a17ddbf07ccd1ea6df50da6f Mon Sep 17 00:00:00 2001
+From: Harry Lasry <harrylasry@gmail.com>
+Date: Thu, 5 Nov 2026 17:35:50 +0400
+Subject: [PATCH] 3DO: swap the discs of a multi-disc game without a reset
+
+Choosing another image of the game being played (the discs of a game share
+one save file, see p3do_get_save_without_disk) no longer resets the console:
+the core reports the media change and the 3DO OS checks the new disc
+(DIPIR). Choosing the same image again still restarts the game. Needs the
+matching 3DO core change (media change report).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ support/3do/3do.cpp | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/support/3do/3do.cpp b/support/3do/3do.cpp
+index 0ff001d..007f201 100644
+--- a/support/3do/3do.cpp
++++ b/support/3do/3do.cpp
+@@ -118,7 +118,22 @@ void p3do_set_image(int num, const char *filename)
+ 	p3docdd.Unload();
+ 	p3docdd.Reset();
+ 
+-	int same_game = 0;//*filename && *last_dir && !strncmp(last_dir, filename, strlen(last_dir));
++	// Another disc of the multi-disc game being played (its discs share one save file, see
++	// p3do_get_save_without_disk) is swapped without resetting the console: the core reports
++	// the media change and the 3DO OS checks the new disc (DIPIR). Choosing the same image
++	// again still restarts the game.
++	static char last_save[sizeof(buf)] = {};
++	static char last_file[sizeof(buf)] = {};
++	char save[sizeof(buf)] = {};
++	if (*filename)
++	{
++		FileGenerateSavePath(filename, save);
++		p3do_get_save_without_disk(save);
++	}
++	int same_game = *filename && *last_save && !strcmp(save, last_save) && strcmp(filename, last_file);
++	strcpy(last_save, save);
++	snprintf(last_file, sizeof(last_file), "%s", filename);
++
+ 	strcpy(last_dir, filename);
+ 	char *p = strrchr(last_dir, '/');
+ 	if (p) *p = 0;
+-- 
+2.56.0.windows.1
+

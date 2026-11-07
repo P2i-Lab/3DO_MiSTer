@@ -1,0 +1,141 @@
+From 09584f595c766bb056ef6ea095ad28199001b742 Mon Sep 17 00:00:00 2001
+From: Harry Lasry <harrylasry@gmail.com>
+Date: Fri, 6 Nov 2026 02:14:25 +0400
+Subject: [PATCH 3/3] 3DO: CD-DA sectors at the speed of the disc
+
+A drive reads digital audio at the speed of the disc: 75 sectors per
+second at single speed, a little ahead of it at most (its buffer). Main
+sent them as fast as the core asked. The BIOS audio CD player relies on
+the drive's speed: it keeps reading and tunes the drive's pitch to stay in
+step with the DSP. Fed faster than the disc, the FZ-1 player overran its
+ring buffer: it read 4 times faster than real time, kept switching the
+pitch, and skipped about 2.5 s every second (how badly depended on the
+timing of each run).
+
+A CD-DA READ that continues the previous one keeps an audio clock: a
+sector goes out only when it is less than 48 sectors ahead of 75 sectors
+per second since the clock started; any other READ (a seek) restarts it.
+Data reads are unchanged. The drive speed and pitch set by MODE SET page 3
+are not used.
+
+Checked in the Verilator simulation of the core with a test disc whose
+tone steps up every half second: the FZ-1 and FZ-10 BIOS players play it
+continuously, at the right speed, with no pitch change, like the Opera
+emulator (which paces CD-DA the same way).
+
+Also corrects the P3DO_FMT_RAW comment: CD-DA samples are in disc order.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ support/3do/3do.h      | 11 ++++++++++-
+ support/3do/3docdd.cpp | 27 +++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/support/3do/3do.h b/support/3do/3do.h
+index d32d7af..dbc7519 100644
+--- a/support/3do/3do.h
++++ b/support/3do/3do.h
+@@ -58,6 +58,10 @@ private:
+ 	bool read_sub;           // the core also wants the 96 subcode bytes of each block
+ 	bool audio_le[100];      // CD-DA track stored little-endian (BIN/WAVE): sent as it is (disc order)
+ 	uint8_t track_flags[100];// CUE FLAGS: control bits of the track (0x01 pre-emphasis, 0x02 copy permitted, 0x08 4 channels)
++	bool da_clock;           // a CD-DA read is going on: its sectors come at the speed of the disc
++	int da_base_lba;         // sector and time (ms) where that audio clock started
++	unsigned long da_base_ms;
++	int da_next_lba;         // first sector after the current audio read (a READ from there continues it)
+ 	uint8_t stat[8];
+ 	uint8_t comm[8];
+ 	uint8_t cd_buf[4096 + 2];
+@@ -81,10 +85,15 @@ private:
+ // Block formats the core asks for (READ command byte 7 bits 1-0, from the drive's MODE SET block length;
+ // bit 2 = subcode requested)
+ #define P3DO_FMT_DATA     0  // 2048 bytes of user data
+-#define P3DO_FMT_RAW      1  // 2352 bytes: raw sector, or CD-DA with big-endian samples
++#define P3DO_FMT_RAW      1  // 2352 bytes: raw sector, or CD-DA (samples in disc order)
+ #define P3DO_FMT_RAW_2336 2  // 2336 bytes: raw sector without sync and header
+ #define P3DO_FMT_RAW_2340 3  // 2340 bytes: raw sector without sync
+ 
++// CD-DA reads: sectors per second of the disc at single speed, and how many sectors the drive may
++// deliver ahead of that clock
++#define P3DO_DA_SECTORS_PER_S 75
++#define P3DO_DA_READ_AHEAD    48
++
+ extern p3docdd_t p3docdd;
+ extern uint32_t p3do_frame_cnt;
+ 
+diff --git a/support/3do/3docdd.cpp b/support/3do/3docdd.cpp
+index 0e96484..1a1ccf5 100644
+--- a/support/3do/3docdd.cpp
++++ b/support/3do/3docdd.cpp
+@@ -6,6 +6,7 @@
+ 
+ #include "3do.h"
+ #include "../chd/mister_chd.h"
++#include "../../hardware.h"
+ 
+ p3docdd_t p3docdd;
+ 
+@@ -15,6 +16,7 @@ p3docdd_t::p3docdd_t() {
+ 	lid_open = false;
+ 	stop_pend = false;
+ 	read_pend = false;
++	da_clock = false;
+ 	read_toc = false;
+ 	track = 0;
+ 	lba = 0;
+@@ -488,6 +490,7 @@ void p3docdd_t::Reset() {
+ 	lid_open = false;
+ 	stop_pend = false;
+ 	read_pend = false;
++	da_clock = false;
+ 	read_toc = false;
+ 	track = 0;
+ 	lba = 0;
+@@ -526,6 +529,21 @@ void p3docdd_t::CommandExec() {
+ 		this->read_fmt = comm[7] & 3;
+ 		this->read_sub = (comm[7] & 4) != 0;
+ 
++		// A drive reads CD-DA at the speed of the disc (75 sectors per second at single speed), a
++		// little ahead of it at most: the 3DO CD player depends on it. A READ that starts where the
++		// previous one ended continues the same clock.
++		if (this->toc.tracks[this->track].type == TT_CDDA && this->read_fmt != P3DO_FMT_DATA) {
++			if (!this->da_clock || this->lba != this->da_next_lba) {
++				this->da_base_lba = this->lba;
++				this->da_base_ms = GetTimer(0);
++				this->da_clock = true;
++			}
++			this->da_next_lba = this->lba + cmd_blocks;
++		}
++		else {
++			this->da_clock = false;
++		}
++
+ #ifdef P3DO_DEBUG
+ 		//printf("\x1b[32m3DO: ");
+ 		//printf("Command = %02X %02X %02X %02X %02X %02X %02X %02X", comm[0], comm[1], comm[2], comm[3], comm[4], comm[5], comm[6], comm[7]);
+@@ -548,6 +566,7 @@ void p3docdd_t::CommandExec() {
+ 
+ 	default:
+ 		this->read_pend = false;
++		this->da_clock = false;
+ 
+ #ifdef P3DO_DEBUG
+ 		printf("\x1b[32m3DO: ");
+@@ -570,6 +589,14 @@ void p3docdd_t::Process(uint8_t* time_mode) {
+ 		printf(" (%u)\n\x1b[0m", p3do_frame_cnt);
+ #endif // P3DO_DEBUG
+ 	}
++	else if (this->read_pend && this->da_clock &&
++	         this->lba >= this->da_base_lba + P3DO_DA_READ_AHEAD +
++	                      (int)((GetTimer(0) - this->da_base_ms) * P3DO_DA_SECTORS_PER_S / 1000)) {
++		// next audio sector not due yet: it is sent by a later poll (read_pend kept)
++		this->state = P3DO_Idle;
++
++		*time_mode = 1;
++	}
+ 	else if (this->read_pend) {
+ 		this->state = P3DO_Read;
+ 
+-- 
+2.56.0.windows.1
+
