@@ -6,6 +6,33 @@ These changes were written with Claude Code (Anthropic's AI coding assistant) an
 
 Everything is on the fork, [P2i-Lab/3DO_MiSTer](https://github.com/P2i-Lab/3DO_MiSTer), with one branch per change based on your latest `main` (b419cbb). The Main_MiSTer changes are provided as patches against its latest `master` (cc47bad).
 
+## Update, 8 November 2026
+
+Your `main` is now 2cf0583, with MiSTer-devel/3DO_MiSTer#24, your ARM fixes (4970e53) and the DRAM sizes (3ec27de). Our branches are rebased on it. The sections after this update still describe them as of 7 November.
+
+| Branch | Now |
+|---|---|
+| `fix/clio-random` | Merged as MiSTer-devel/3DO_MiSTer#24. |
+| `pr/dsp-fifo-read` | Open as MiSTer-devel/3DO_MiSTer#25. It still merges cleanly on 2cf0583. |
+| `pr/cd-audio` | Replaced by MiSTer-devel/3DO_MiSTer#27 (branch `cd-audio`, `rtl/3DO_CDROM.sv` only) and, for Main, by MiSTer-devel/Main_MiSTer#1414. |
+| `pr/nvram-format` | Replaced by MiSTer-devel/Main_MiSTer#1415: Main formats a save file that holds no NVRAM volume, and the core does not change. |
+| `fix/cd-error-status`, `pr/cd-disc-change`, `pr/disc-swap-reboot`, `pr/timing` | Rebased. Their commits did not change. |
+| `pr/pause-meter` | Rebased. The OSD option moved to status bit 22, because Sysmem now uses bits 20 and 21. |
+| `pr/arm6-cpu` | Rebased and reduced to the two points that neither 4970e53 nor canxin121's PRs cover: an immediate LSR #0 shifts by 32, and unaligned LDR and SWP rotate the word by 8 × A[1:0]. It also removes the duplicate `GR_R15` of the simulation-only block, which Verilator rejects. |
+| `pr/game-table` | New. Quarantine (US) (RE2), disc id 356B12E2, gets the VRAM windows of Quarantine (US), {8,6,C}. This does not remove the black screen described in MiSTer-devel/3DO_MiSTer#23. |
+
+**ARM6 tests on 2cf0583 with `pr/arm6-cpu`.**
+- `sim/arm6`: 8 of the 12 programs pass. The other four need canxin121's PRs: `t_msr` needs MiSTer-devel/3DO_MiSTer#18, `t_irq` and `t_swi` need #19 (their setup uses `MSR CPSR_flg, #imm`), and case 22 of `t_regress` needs #17. The branch's `sim/arm6/README.md` lists them.
+- Fuzzing, with the same 1500 random programs without `MSR #imm` as in our ARM6 note on MiSTer-devel/3DO_MiSTer#23: 214 differ, against 396 on 2cf0583 alone. In 211 of them the instruction that makes the results differ is an `MSR SPSR_flg` (#18), and in the other 3 it is a logical shift by a register (#17).
+
+**Whole-core check.** `test/integration-20261108` merges all these branches with #25 and #27. We ran it in the system simulation with Main_MiSTer `master` cc47bad plus MiSTer-devel/Main_MiSTer#1414, #1415 and patches 2 and 3 below, which still merge cleanly. We compared it with `test/int-20261107c`, the 7 November test build.
+- Doom: the 29 pictures taken over the first 900 frames are identical to those of the 7 November test build.
+- FZ-1 audio CD player: it reads 48 different RandSample values, and its sound is identical, sample for sample, to that of the 7 November test build.
+- Without a disc, and with the Warner Music Group disc, the BIOS logo appears. On 2cf0583 alone the screen is still black at frame 800.
+- BrainDead 13: inserting disc 1 at the "CHANGE DISC PLEASE" screen of disc 2 restarts the console, which then shows the game's opening screen.
+
+The rebased branches have not been built or tested on hardware yet.
+
 ## Summary
 
 | Branch | Change | Size | Checked |
