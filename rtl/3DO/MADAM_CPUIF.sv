@@ -120,7 +120,16 @@ module MADAM_CPUIF
 		end
 	end 
 	assign ACCESS = ~(STRETCH | BREAK | ICYCLE);
-	assign START = (STRETCH | BREAK | (ICYCLE && SEQ)) & PHASE2;
+
+	//SEQ comes from the CPU decode and only changes when the CPU ends a cycle, at the end of PHASE2.
+	//START is then masked for at least two clocks (PHASE2 low, or CPU_GRANT low when a DMA keeps
+	//PHASE2), so a copy delayed by one clock gives the same RAS/CODE outputs and keeps the CPU decode
+	//off the paths to the memory controllers (clk_mem, 10 ns).
+	bit         SEQ_R;
+	always @(posedge CLK) begin
+		SEQ_R <= SEQ;
+	end
+	assign START = (STRETCH | BREAK | (ICYCLE && SEQ_R)) & PHASE2;
 	
 	bit         EXEC;
 	always @(posedge CLK or negedge RST_N) begin
