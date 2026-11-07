@@ -59,7 +59,6 @@ module ARM6_RB (
 	reg [31:0]  GR_ABT[16];
 	reg [31:0]  GR_IRQ[16];
 	reg [31:0]  GR_UND[16]; 
-	reg [31:0]  GR_R15; 
 	
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
