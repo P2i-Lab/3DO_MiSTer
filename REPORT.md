@@ -2,7 +2,7 @@
 
 Report for Sergiy Dvodnenko (srg320), November 2026.
 
-These changes were written with Claude Code (Anthropic's AI coding assistant) and tested by Harry (P2i Lab) on his MiSTer. Each change was first checked in a Verilator simulation of the whole core, driven by the real Main_MiSTer 3DO code (`support/3do`), and compared with Opera (libretro) where possible. Then it was tested on a DE10-Nano with the FZ-1 (U) BIOS.
+These changes were written with Claude Code (Anthropic's AI coding assistant) and tested by Harry (P2i Lab). Each change was first checked in simulation (the whole core in Verilator, driven by the real Main_MiSTer 3DO code (`support/3do`), or a testbench) and compared with Opera (libretro) where possible. The "Checked" column of the summary says which ones were then tested on a DE10-Nano with the FZ-1 (U) BIOS.
 
 Everything is on the fork, [P2i-Lab/3DO_MiSTer](https://github.com/P2i-Lab/3DO_MiSTer), with one branch per change based on your latest `main` (b419cbb). The Main_MiSTer changes are provided as patches against its latest `master` (cc47bad).
 
@@ -10,7 +10,7 @@ Everything is on the fork, [P2i-Lab/3DO_MiSTer](https://github.com/P2i-Lab/3DO_M
 
 | Branch | Change | Size | Checked |
 |---|---|---|---|
-| `fix/clio-random` | CLIO RandSample (0x3C) and RandSeed (0x38) implemented: the BIOS audio CD player no longer hangs | 1 file, +21 | sim, hardware |
+| `fix/clio-random` | CLIO RandSample (0x3C) and RandSeed (0x38) implemented: the BIOS audio CD player no longer hangs | 1 file, +17 | sim, hardware |
 | `pr/dsp-fifo-read` | DSP input FIFO reads return the head of the FIFO: the CD player plays left and right in place | 2 files, +39 −19 | sim, hardware (6 games) |
 | `fix/cd-error-status` | CD drive: a failed spin-up no longer leaves the drive in error (black screen without a disc or with an unbootable disc) | 1 file, +6 −1 | sim, hardware |
 | `pr/cd-disc-change` | CD-ROM: disc changes reported while the console runs (issue #9) | core + testbench | testbench, sim |
@@ -33,12 +33,11 @@ We will rebase whichever comes second, so merge them in any order you like.
 
 **Cause.** CLIO 0x38 (RandSeed) and 0x3C (RandSample) were not implemented and read 0. The kernel's `ReadHardwareRandomNumber` reads RandSample twice and combines the values, so it always returned 0. When it starts, the player builds a random track order: it draws numbers until it has every track and rejects the ones out of range. With 0 it never gets one, and loops forever.
 
-**Change.** RandSample returns a free-running 32-bit LFSR (x^32+x^22+x^2+x+1) stepped every clock. The hardware samples a noise source, which is not documented. RandSeed is stored and read back.
+**Change.** RandSample returns a 32-bit LFSR (x^32+x^22+x^2+x+1) that steps on each CPU read of 0x3C, as Opera returns a new value on each read (changed after review, merged in MiSTer-devel/3DO_MiSTer#24; the first version stepped every clock). How the hardware makes the value is not documented. RandSeed is stored and read back.
 
 **Checked.**
-- Simulation: the FZ-1 and FZ-10 players start and play.
-- Opera also returns a pseudo-random value there.
-- Hardware: the FZ-1 player plays a 5-track test CD.
+- Simulation: with the first version, the FZ-1 and FZ-10 players start and play; with the merged version, the FZ-1 player reads 48 different values and plays the test CD.
+- Hardware, first version: the FZ-1 player plays a 5-track test CD.
 
 ## 2. DSP input FIFO reads — `pr/dsp-fifo-read`
 
