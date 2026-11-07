@@ -983,8 +983,11 @@ module emu
 	wire         ddr_blte,ddr_brte;
 	wire         ddr_bbusy;
 	
-	wire         ddr_luse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && LA[19:2] >= ({BRAM4_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) || (`USE_BRAM_BLOCKS_FOR_VRAM && LA[19:2] >= ({BRAM2_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) || (LA[19:2] >= ({BRAM1_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (LA[19:2] >= (20'hFC000>>2)));
-	wire         ddr_ruse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && RA[19:2] >= ({BRAM4_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) || (`USE_BRAM_BLOCKS_FOR_VRAM && RA[19:2] >= ({BRAM2_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) || (RA[19:2] >= ({BRAM1_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (RA[19:2] >= (20'hFC000>>2)));
+	//Same 64 KB block decode of the BRAM windows as in P3DO_VRAM (4-bit compares on the block)
+	wire [ 4: 0] LA_BLK = {1'b0,LA[19:16]};
+	wire [ 4: 0] RA_BLK = {1'b0,RA[19:16]};
+	wire         ddr_luse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && LA_BLK >= {1'b0,BRAM4_OFFS} && LA_BLK <= {1'b0,BRAM4_OFFS} + 5'd3) || (`USE_BRAM_BLOCKS_FOR_VRAM && LA_BLK >= {1'b0,BRAM2_OFFS} && LA_BLK <= {1'b0,BRAM2_OFFS} + 5'd1) || (LA[19:16] == BRAM1_OFFS && ~&LA[15:14]) || &LA[19:14]);
+	wire         ddr_ruse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && RA_BLK >= {1'b0,BRAM4_OFFS} && RA_BLK <= {1'b0,BRAM4_OFFS} + 5'd3) || (`USE_BRAM_BLOCKS_FOR_VRAM && RA_BLK >= {1'b0,BRAM2_OFFS} && RA_BLK <= {1'b0,BRAM2_OFFS} + 5'd1) || (RA[19:16] == BRAM1_OFFS && ~&RA[15:14]) || &RA[19:14]);
 	
 	ddram ddram
 	(

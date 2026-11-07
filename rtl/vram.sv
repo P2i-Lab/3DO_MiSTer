@@ -37,9 +37,13 @@ module P3DO_VRAM #(parameter USE_BRAM = 0) (
 	bit  [17: 0] A_FF;
 	bit  [15: 0] D_FF;
 	
-	wire         USE_INT_RAM4 = (A >= ({BRAM4_OFFS+0,16'h0000}>>2) && A <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) && USE_BRAM;
-	wire         USE_INT_RAM2 = (A >= ({BRAM2_OFFS+0,16'h0000}>>2) && A <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) && USE_BRAM;
-	wire         USE_INT_RAM1 = (A >= ({BRAM1_OFFS+0,16'h0000}>>2) && A <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (A >= (20'hFC000>>2));
+	//The BRAM windows lie on 64 KB blocks (A[17:14]) and their offsets only change at a console reset, so
+	//they are found with 4-bit compares on the block instead of 18-bit ones on the address (paths from
+	//MADAM). Same result as comparing A with the window bounds.
+	wire [ 4: 0] A_BLK = {1'b0,A[17:14]};
+	wire         USE_INT_RAM4 = (A_BLK >= {1'b0,BRAM4_OFFS} && A_BLK <= {1'b0,BRAM4_OFFS} + 5'd3) && USE_BRAM;
+	wire         USE_INT_RAM2 = (A_BLK >= {1'b0,BRAM2_OFFS} && A_BLK <= {1'b0,BRAM2_OFFS} + 5'd1) && USE_BRAM;
+	wire         USE_INT_RAM1 = (A[17:14] == BRAM1_OFFS && ~&A[13:12]) || &A[17:12];
 
 //	bit  [15: 0] MASK;
 	bit  [15: 0] COLOR;
@@ -207,9 +211,10 @@ module P3DO_VRAM #(parameter USE_BRAM = 0) (
 		WE_N_OLD <= &WE_N;
 	end
 	
-	wire         MEM4_SSEL = (ESADDR >= ({BRAM4_OFFS+0,16'h0000}>>2) && ESADDR <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) && USE_BRAM;
-	wire         MEM2_SSEL = (ESADDR >= ({BRAM2_OFFS+0,16'h0000}>>2) && ESADDR <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) && USE_BRAM;
-	wire         MEM1_SSEL = (ESADDR >= ({BRAM1_OFFS+0,16'h0000}>>2) && ESADDR <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (ESADDR >= (20'hFC000>>2));
+	wire [ 4: 0] ES_BLK = {1'b0,ESADDR[17:14]};
+	wire         MEM4_SSEL = (ES_BLK >= {1'b0,BRAM4_OFFS} && ES_BLK <= {1'b0,BRAM4_OFFS} + 5'd3) && USE_BRAM;
+	wire         MEM2_SSEL = (ES_BLK >= {1'b0,BRAM2_OFFS} && ES_BLK <= {1'b0,BRAM2_OFFS} + 5'd1) && USE_BRAM;
+	wire         MEM1_SSEL = (ESADDR[17:14] == BRAM1_OFFS && ~&ESADDR[13:12]) || &ESADDR[17:12];
 	
 	wire [15: 4] MEM_SWADDR = ESADDR[15:4];
 	wire[255: 0] MEM_SDATA = FW_EXEC ? {16{COLOR}} : {SR_Q[239:224],SR_Q[255:240],SR_Q[207:192],SR_Q[223:208],SR_Q[175:160],SR_Q[191:176],SR_Q[143:128],SR_Q[159:144],SR_Q[111:96],SR_Q[127:112],SR_Q[79:64],SR_Q[95:80],SR_Q[47:32],SR_Q[63:48],SR_Q[15:0],SR_Q[31:16]};//SR_Q;

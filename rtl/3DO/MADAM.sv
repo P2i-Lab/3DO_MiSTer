@@ -426,9 +426,14 @@ module MADAM
 		endcase
 		VRAM_END = VRAM_START + 24'h100000;
 	end
-	wire CPU_DRAM0_SEL = (A[31:24] == 8'h00 && A[23:0] >= 32'h00000000 && A[23:0] <= DRAM0_END && |MSYS[4:3] && !BOOT_ROM);
-	wire CPU_DRAM1_SEL = (A[31:24] == 8'h00 && A[23:0] >= DRAM1_START  && A[23:0] <= DRAM1_END && |MSYS[6:5] && !BOOT_ROM);
-	wire CPU_VRAM_SEL  = (A[31:24] == 8'h00 && A[23:0] >= VRAM_START   && A[23:0] <= VRAM_END              );
+	//The bounds only change with MSYS and the banks lie on 1 MB boundaries, so a bank is found from the
+	//1 MB block of the address (4-bit compares instead of 24-bit ones on the paths to the memory controllers).
+	//Same result as comparing the address with the bounds, VRAM_END included (first byte of the next block).
+	wire [ 3: 0] CPU_BLK = A[23:20];
+	wire         CPU_BLK_FIRST = ~|A[19:0];
+	wire CPU_DRAM0_SEL = (A[31:24] == 8'h00 && CPU_BLK <= DRAM0_END[23:20] && |MSYS[4:3] && !BOOT_ROM);
+	wire CPU_DRAM1_SEL = (A[31:24] == 8'h00 && CPU_BLK >= DRAM1_START[23:20] && CPU_BLK <= DRAM1_END[23:20] && |MSYS[6:5] && !BOOT_ROM);
+	wire CPU_VRAM_SEL  = (A[31:24] == 8'h00 && CPU_BLK >= VRAM_START[23:20] && (CPU_BLK < VRAM_END[23:20] || (CPU_BLK == VRAM_END[23:20] && CPU_BLK_FIRST)));
 	wire CPU_CLIO_SEL = (A[31:20] == 12'h034);
 	wire CPU_SLOW_SEL = (A[31:20] == 12'h030 || A[31:20] == 12'h031 || (A[31:20] == 12'h000 && BOOT_ROM));
 	wire CPU_SPORT_SEL = (A[31:20] == 12'h032 && CPU_GRANT);

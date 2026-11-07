@@ -412,9 +412,14 @@ module MADAM_AG
 	wire [ 1: 0] AG_WE =  {2{BUS_STATE_FF == EXTP_WRITE0 || BUS_STATE_FF == EXTP_WRITE1}} | 
 	                      {2{BUS_STATE_FF == PLAY_WRITE0 || BUS_STATE_FF == PLAY_WRITE1}};
 	wire         AG_REF =  (BUS_STATE_FF == REF_INIT1 || BUS_STATE_FF == REF_WRITE0 || BUS_STATE_FF == REF_WRITE1 || BUS_STATE_FF == REF_WRITE2 || BUS_STATE_FF == REF_WRITE3);
-	wire         AG_DRAM0_SEL = ((AOUT >= (24'h000000>>2) && AOUT <= (DRAM0_END>>2)) || AG_REF) && |MEM_SIZE[4:3] && DRAM_EN;
-	wire         AG_DRAM1_SEL = ((AOUT >= (DRAM1_START>>2) && AOUT <= (DRAM1_END>>2)) || AG_REF) && |MEM_SIZE[6:5] && DRAM_EN;
-	wire         AG_VRAM_SEL  = (AOUT >= (VRAM_START>>2) && AOUT <= (VRAM_END>>2));
+	//The bounds only change with MEM_SIZE and the banks lie on 1 MB boundaries, so a bank is found from the
+	//1 MB block of the address (4-bit compares instead of 22-bit ones on the paths to the memory controllers).
+	//Same result as comparing the address with the bounds, VRAM_END included (first word of the next block).
+	wire [ 3: 0] AOUT_BLK = AOUT[23:20];
+	wire         AOUT_BLK_FIRST = ~|AOUT[19:2];
+	wire         AG_DRAM0_SEL = (AOUT_BLK <= DRAM0_END[23:20] || AG_REF) && |MEM_SIZE[4:3] && DRAM_EN;
+	wire         AG_DRAM1_SEL = ((AOUT_BLK >= DRAM1_START[23:20] && AOUT_BLK <= DRAM1_END[23:20]) || AG_REF) && |MEM_SIZE[6:5] && DRAM_EN;
+	wire         AG_VRAM_SEL  = AOUT_BLK >= VRAM_START[23:20] && (AOUT_BLK < VRAM_END[23:20] || (AOUT_BLK == VRAM_END[23:20] && AOUT_BLK_FIRST));
 	
 	wire         CFB_START = (BUS_STATE_FF == CFB_INIT1);
 	wire         CFB_ACCESS = (BUS_STATE_FF == CFB_INIT1 ||
@@ -423,9 +428,14 @@ module MADAM_AG
 	wire [ 1: 0] CFB_CAS = {SE_WRITE_A&~SE_ADDR_A[1]&PHASE1,SE_WRITE_A&SE_ADDR_A[1]&PHASE1}|{SE_WRITE_B&~SE_ADDR_B[1]&PHASE2,SE_WRITE_B&SE_ADDR_B[1]&PHASE2};
 	wire [ 1: 0] CFB_WE = {2{BUS_STATE_FF == CFB_WRITE0 || BUS_STATE_FF == CFB_WRITE1}}&CFB_CAS;
 	wire [ 1: 0] CFB_OE = {2{BUS_STATE_FF == CFB_READ0 || BUS_STATE_FF == CFB_READ1}}&CFB_CAS;
-	wire         CFB_DRAM0_SEL = SE_RAS_B || SE_WRITE_B ? (SE_ADDR_B[23:2] >= (24'h000000>>2) && SE_ADDR_B[23:2] <= (DRAM0_END>>2)) : (SE_ADDR_A[23:2] >= (24'h000000>>2) && SE_ADDR_A[23:2] <= (DRAM0_END>>2));
-	wire         CFB_DRAM1_SEL = SE_RAS_B || SE_WRITE_B ? (SE_ADDR_B[23:2] >= (DRAM1_START>>2) && SE_ADDR_B[23:2] <= (DRAM1_END>>2)) : (SE_ADDR_A[23:2] >= (DRAM1_START>>2) && SE_ADDR_A[23:2] <= (DRAM1_END>>2));
-	wire         CFB_VRAM_SEL  = SE_RAS_B || SE_WRITE_B ? (SE_ADDR_B[23:2] >= (VRAM_START>>2) && SE_ADDR_B[23:2] <= (VRAM_END>>2)) : (SE_ADDR_A[23:2] >= (VRAM_START>>2) && SE_ADDR_A[23:2] <= (VRAM_END>>2));
+	//Same 1 MB block decode. These selects are not gated by MEM_SIZE: a bank of size 0 selects the single
+	//word at its start, as the comparisons with the bounds did.
+	wire [23: 2] CFB_ADDR = SE_RAS_B || SE_WRITE_B ? SE_ADDR_B[23:2] : SE_ADDR_A[23:2];
+	wire [ 3: 0] CFB_BLK = CFB_ADDR[23:20];
+	wire         CFB_BLK_FIRST = ~|CFB_ADDR[19:2];
+	wire         CFB_DRAM0_SEL = |MEM_SIZE[4:3] ? CFB_BLK <= DRAM0_END[23:20] : (CFB_BLK == 4'h0 && CFB_BLK_FIRST);
+	wire         CFB_DRAM1_SEL = |MEM_SIZE[6:5] ? (CFB_BLK >= DRAM1_START[23:20] && CFB_BLK <= DRAM1_END[23:20]) : (CFB_BLK == DRAM1_START[23:20] && CFB_BLK_FIRST);
+	wire         CFB_VRAM_SEL  = CFB_BLK >= VRAM_START[23:20] && (CFB_BLK < VRAM_END[23:20] || (CFB_BLK == VRAM_END[23:20] && CFB_BLK_FIRST));
 	
 	wire         PREV_TRANS = (BUS_STATE_FF == CLUT_TRANSFER0 || BUS_STATE_FF == CLUT_TRANSFER1 || 
 	                           BUS_STATE_FF == VID_PREV0 || BUS_STATE_FF == VID_PREV1);
