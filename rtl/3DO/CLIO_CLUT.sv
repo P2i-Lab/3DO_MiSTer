@@ -58,7 +58,9 @@ module CLIO_CLUT
 	end 
 	wire [ 6: 0] CRADDR = BG_SWITCH ? {1'b1,1'b0,5'b00001} : {1'b0,1'b1,ADDR};
 	
-	wire [ 6: 0] LWADDR = SCAP[29] ? {1'b1,1'b0,5'b00001} : {1'b0,1'b1,SCAP[28:24]};
+	//colour word, bits 31-29: 000 = red, green and blue, 011 = red only, 010 = green only, 001 = blue only
+	//of the entry in bits 28-24; 111 = background. Only the background word writes the background entry.
+	wire [ 6: 0] LWADDR = SCAP[31:29] == 3'b111 ? {1'b1,1'b0,5'b00001} : {1'b0,1'b1,SCAP[28:24]};
 	wire [ 6: 0] CWADDR = BG_SWITCH ? {1'b1,1'b0,5'b00000} : {1'b0,1'b0,ADDR};
 	wire         RWE = (SCAP[31:29] == 3'b000 || SCAP[31:29] == 3'b011 || SCAP[31:24] == 8'hE0);
 	wire         GWE = (SCAP[31:29] == 3'b000 || SCAP[31:29] == 3'b010 || SCAP[31:24] == 8'hE0);
