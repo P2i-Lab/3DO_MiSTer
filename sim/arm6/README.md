@@ -5,7 +5,8 @@ Standalone Verilator testbench for the ARM60 core in `rtl/ARM6`.
 * `tb_arm6.sv` runs a program from address 0 with a zero-wait-state 64 KB RAM, big-endian like the 3DO.
   It drives the IRQ and FIQ lines: a program asserts them through `0xF0000010` / `0xF0000014`
   (0 releases the line, n > 0 asserts it n cycles later), and `+IRQRATE`, `+FIQRATE`, `+INTSEED`,
-  `+INTMIN` assert them at random.
+  `+INTMIN` assert them at random. A write of n > 0 to `0xF0000018` drives nRESET low n cycles later,
+  for 8 cycles, like the CLIO soft reset (the RAM keeps its contents).
 * `tests/*.S` are self-checking ARM programs (GNU as). They write `0x600D` to `0xF0000000` on success,
   or the failing test id, actual and expected values. A `@ maxcyc N` line raises the cycle limit.
 * `repro/*.memh` are the exact programs from bug reports, with the expected results in `repro/*.expect`.
@@ -32,18 +33,20 @@ Linux or WSL2 with Verilator 5 and the ARM bare-metal binutils, e.g. on Ubuntu 2
 | `t_regress` | shifter, carry and overflow, MUL/MLA, big-endian byte lanes, LDM/STM, SWP, BL, conditions, PC reads |
 | `t_swi` | SWI from SVC and User mode: R14_svc, SPSR_svc, mode and I bit, banked R13/R14; returns with MOVS PC, SUBS PC and LDM {..PC}^ |
 | `t_irq` | IRQ and FIQ masking, entry state (mode, I/F, SPSR, R14), banked FIQ R8-R12, FIQ before IRQ; an IRQ, a FIQ or both at each of 200 cycles of a workload with every kind of instruction, which must give the same result as without interrupt |
+| `t_reset` | reset through nRESET: Supervisor mode with I=1 and F=1, flags kept, SPSR_svc = CPSR and R14_svc = PC of the interrupted program; an active FIQ or IRQ line waits until the program clears F or I; reset from User mode |
 | `repro/issue*` | the programs from issues #10, #11 and #12, unchanged |
 
 ## Status on the current main
 
 On srg320's main (2cf0583) with the two RTL commits of this branch (immediate LSR #0, unaligned
-LDR/SWP rotation), 8 of the 12 programs pass. The other 4 need canxin121's open pull requests:
+LDR/SWP rotation), 8 of the 13 programs pass. Four of the other 5 need canxin121's open pull requests:
 
 | Program | Fails on | Fixed by |
 |---|---|---|
 | `t_msr` | `MSR SPSR_flg, Rm` also writes the control bits | MiSTer-devel/3DO_MiSTer#18 |
 | `t_irq`, `t_swi` | their setup uses `MSR CPSR_flg, #imm`, decoded as an illegal instruction | MiSTer-devel/3DO_MiSTer#19 |
 | `t_regress` (case 22) | LSL/LSR by a register holding 64 or more sets C | MiSTer-devel/3DO_MiSTer#17 |
+| `t_reset` | after a reset through nRESET, F stays clear and SPSR_svc holds the new CPSR | branch `fix/arm6-reset` of P2i-Lab/3DO_MiSTer |
 
 `fuzz.py` also sets the flags with `MSR CPSR_flg, #imm`, so its programs need #19 too.
 

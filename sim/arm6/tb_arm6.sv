@@ -16,6 +16,9 @@
 //  the end of the handlers: a line asserted again before the return makes the
 //  next interrupt come before any instruction of the program.
 //
+//  Reset: a write of n > 0 to 0xF0000018 drives nRESET low n CPU cycles later,
+//  for 8 cycles (the 3DO's CLIO soft reset). The RAM keeps its contents.
+//
 //  Plusargs:  +IMAGE=<file.memh>  one 32-bit word per line, as seen on the bus
 //             +MAXCYC=<n>         clock cycle limit (default 200000)
 //             +DUMPADDR=<hex>     memory printed at the end (default 2000)
@@ -38,8 +41,9 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 	integer       i, maxcyc, dumpaddr, dumplen, cycles = 0;
 	wire    [1:0] lane = adr[1:0] ^ {2{BIGEND}};
 
-	reg           irq_n = 1, fiq_n = 1;
+	reg           irq_n = 1, fiq_n = 1, cpures_n = 1;
 	integer       irqrate, fiqrate, intmin, irq_wait = 0, fiq_wait = 0, irqs = 0, fiqs = 0;
+	integer       res_wait = 0, res_len = 0, resets = 0;
 	reg    [31:0] rnd;
 
 	assign rdat = adr < 32'h00010000 ? mem[adr[15:2]] : 32'h00000000;
@@ -47,7 +51,7 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 	ARM6_CORE dut (
 		.CLK(clk), .RST_N(rst_n), .EN(1'b1), .BIGEND(BIGEND),
 		.CE_R(phase), .CE_F(~phase),
-		.nRESET(1'b1), .nFIQ(fiq_n), .nIRQ(irq_n),
+		.nRESET(cpures_n), .nFIQ(fiq_n), .nIRQ(irq_n),
 		.EDI(32'h00000000),
 		.A(adr), .DI(rdat), .DO(wdat), .nRW(nrw), .nWB(nwb),
 		.nMREQ(nmreq), .SEQ(seq), .nOPC(nopc), .nTRANS(ntrans), .LOCK(lock), .DBE(1'b1),
@@ -97,6 +101,13 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 				if (fiq_wait == 1) begin fiq_n <= 0; fiqs <= fiqs + 1; end
 				fiq_wait <= fiq_wait - 1;
 			end else if (fiq_n && fiqrate != 0) fiq_wait <= 1 + intmin + rnd[31:16] % (2 * fiqrate);
+			if (res_wait != 0) begin
+				if (res_wait == 1) begin cpures_n <= 0; res_len <= 8; resets <= resets + 1; end
+				res_wait <= res_wait - 1;
+			end else if (res_len != 0) begin
+				if (res_len == 1) cpures_n <= 1;
+				res_len <= res_len - 1;
+			end
 
 			if (ili) begin
 				$display("TB ILLEGAL inst=%08x adr=%08x", dut.EX_IC, adr);
@@ -109,6 +120,7 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 						$display("TB DONE marker=%08x id=%08x actual=%08x expected=%08x cycles=%0d", wdat, res[1], res[2], res[3], cycles);
 						$display("TB MARKER %08x", wdat);
 						$display("TB INTS irq=%0d fiq=%0d", irqs, fiqs);
+						if (resets != 0) $display("TB RESETS %0d", resets);
 						for (i = 0; i < dumplen; i = i + 1) $display("TB DUMP %0d %08x", i, mem[(dumpaddr >> 2) + i]);
 						$finish;
 					end
@@ -118,6 +130,8 @@ module tb_arm6 #(parameter bit BIGEND = 1'b1);	// the 3DO runs the ARM60 big-end
 				end else if (adr == 32'hF0000014) begin
 					if (wdat == 0) begin fiq_n <= 1; fiq_wait <= 0; end
 					else fiq_wait <= wdat;
+				end else if (adr == 32'hF0000018) begin
+					res_wait <= wdat;
 				end else if (adr < 32'h00010000) begin
 					if (nwb) mem[adr[15:2]] <= wdat;
 					else     mem[adr[15:2]][lane*8 +: 8] <= wdat[7:0];
