@@ -172,6 +172,8 @@ module ARM6_CORE
 			STATE <= '0;
 			EX_IC <= 32'hEF000000;
 			RESET_PEND <= 1;
+			FIQ_PEND <= 0;
+			IRQ_PEND <= 0;
 		end
 		else if (EN && CE_F) begin
 			STATE <= STATE_NEXT;
@@ -387,6 +389,7 @@ module ARM6_CORE
 			
 			PSRC_INT: if (FIQ_PEND) {CPSR_NEXT.I,CPSR_NEXT.F,CPSR_NEXT.M} <= {1'b1,1'b1,5'b10001};
 						 else if (IRQ_PEND) {CPSR_NEXT.I,CPSR_NEXT.M} <= {1'b1,5'b10010};
+						 else if (RESET_PEND) {CPSR_NEXT.I,CPSR_NEXT.F,CPSR_NEXT.M} <= {1'b1,1'b1,5'b10011};//reset: IRQ and FIQ disabled
 						 else {CPSR_NEXT.I,CPSR_NEXT.M} <= {1'b1,5'b10011};//for SWI
 			
 			PSRC_RET: 
@@ -408,7 +411,7 @@ module ARM6_CORE
 			CPSR <= 32'h000000D3;
 			SPSR <= '{6{'0}};
 		end
-		else if (EN && CE_F) begin
+		else if (EN && CE_F && !RES_SYNC) begin
 			CPSR <= CPSR_NEXT;
 			case (DECI.PSRCTL)
 				PSRC_ALU: if (EX_IC[22])
