@@ -629,6 +629,7 @@ module emu
 	wire [15: 0] CDCRC;
 	
 	wire [31: 0] VRAM_SQ;
+	wire         VRAM_LSRDY,VRAM_RSRDY;
 	wire         P3DO_FIELD;
 	
 	wire [ 7: 0] R, G, B;
@@ -743,6 +744,7 @@ module emu
 		.CDMDCHG(CDMDCHG),
 		
 		.S(VRAM_SQ),
+		.SRDY(VRAM_LSRDY & VRAM_RSRDY),
 		
 		.FIELD(P3DO_FIELD),
 		
@@ -903,6 +905,7 @@ module emu
 		.SE_N(0),
 		.SQ(VRAM_SQ[31:16]),
 		.QSF(LQSF),
+		.SRDY(VRAM_LSRDY),
 		
 		.RDY(VRAM_LRDY),
 		
@@ -940,6 +943,7 @@ module emu
 		.SE_N(0),
 		.SQ(VRAM_SQ[15:0]),
 		.QSF(RQSF),
+		.SRDY(VRAM_RSRDY),
 		
 		.RDY(VRAM_RRDY),
 		

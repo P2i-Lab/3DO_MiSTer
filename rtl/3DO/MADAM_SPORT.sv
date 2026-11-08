@@ -34,6 +34,7 @@ module MADAM_SPORT
 	input              PCSC,
 	output             LSC,
 	output             RSC,
+	input              SRDY,
 	
 	output             FIELD,
 	output             V480
@@ -186,6 +187,10 @@ module MADAM_SPORT
 	
 	wire CLUT_TRANS = (BUS_STATE_FF == CLUT_TRANSFER1);
 	bit          CLUT_TRANS_EXEC;
+	//The VRAM rows in DDR3 reach the serial registers some time after the read transfer: the colour
+	//words are shifted out when the registers hold them (SRDY), until HCOUNT 1467 (CLIO takes them until
+	//1471, before the read transfer of the next line). Words that are not there by then are dropped.
+	wire         CLUT_SHIFT = CLUT_TRANS_EXEC & SRDY;
 	always @(posedge CLK or negedge RST_N) begin
 		bit  [ 5: 0] CNT;
 		bit          PEND;
@@ -202,16 +207,20 @@ module MADAM_SPORT
 			end
 			
 			if (EN && VCE) begin
-				if (PEND && HCOUNT >= 11'd1340 - 1) begin
+				if (PEND && HCOUNT >= 11'd1340 - 1 && HCOUNT < 11'd1468 - 1) begin
 					CNT <= '0;
 					PEND <= 0;
 					CLUT_TRANS_EXEC <= CLUTXEN;
 				end
 				
-				if (CLUT_TRANS_EXEC) begin
+				if (CLUT_SHIFT) begin
 					CNT <= CNT + 6'd1;
 					if (CNT == CLUT_DMACTL.LEN - 6'd1) 
 						CLUT_TRANS_EXEC <= 0;
+				end
+				if (HCOUNT >= 11'd1468 - 1) begin
+					PEND <= 0;
+					CLUT_TRANS_EXEC <= 0;
 				end
 			end
 		end
@@ -309,8 +318,8 @@ module MADAM_SPORT
 		end
 	end
 	
-	assign LSC = ((CLUT_TRANS_EXEC | (VIDEO_TRANS_EXEC & (VIDEO_CNT[0] ^  VIDOUT_PFL) & HCOUNT[0])) & VCE);
-	assign RSC = ((CLUT_TRANS_EXEC | (VIDEO_TRANS_EXEC & (VIDEO_CNT[0] ^ ~VIDOUT_PFL) & HCOUNT[0])) & VCE);
+	assign LSC = ((CLUT_SHIFT | (VIDEO_TRANS_EXEC & (VIDEO_CNT[0] ^  VIDOUT_PFL) & HCOUNT[0])) & VCE);
+	assign RSC = ((CLUT_SHIFT | (VIDEO_TRANS_EXEC & (VIDEO_CNT[0] ^ ~VIDOUT_PFL) & HCOUNT[0])) & VCE);
 	
 	always_comb begin
 		AG_CTL = '0;
