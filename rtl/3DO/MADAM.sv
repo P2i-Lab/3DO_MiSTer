@@ -31,6 +31,7 @@ module MADAM
 	input              VCE,
 	output reg         LPSC_N,
 	output reg         RPSC_N,
+	input              SRDY,
 	
 	output     [23: 2] LA,
 	output             LRAS0_N,
@@ -752,6 +753,7 @@ module MADAM
 		.PCSC(PCSC),
 		.LSC(SPORT_LSC),
 		.RSC(SPORT_RSC),
+		.SRDY(SRDY),
 		
 		.FIELD(FIELD)
 	);

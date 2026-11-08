@@ -17,6 +17,7 @@ module P3DO_VRAM #(parameter USE_BRAM = 0) (
 	input          SE_N,
 	output [15: 0] SQ,
 	output         QSF,
+	output         SRDY,		//the serial register holds the data of the next shift
 	
 	input  [15: 0] EQ,
 	output [17: 0] ESADDR,
@@ -83,8 +84,15 @@ module P3DO_VRAM #(parameter USE_BRAM = 0) (
 			SR_WE <= 0;
 			SR_RA <= '0;
 			ISTE <= 0;
+			SRDY <= 0;
 		end else begin
 			RT_REQ <= 0;
+			
+			//A read transfer from the DDR3 fills the serial register over several bursts, after the
+			//latency of the DDR3. The next shift reads valid data when no transfer waits for the memory
+			//and the fill has passed the position it reads (a split transfer fills the other half).
+			SRDY <= SOM && RDY && RDY_OLD && !RT_PEND && !MWT_PEND &&
+			        (!RT_EXEC || (SPLIT && SR_RA[8] != SREG_POS[8]) || ({1'b0,SREG_POS} >= {1'b0,SR_RA} + 10'd4));
 			
 			A_FF <= A;
 			D_FF <= D;

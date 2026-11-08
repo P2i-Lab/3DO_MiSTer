@@ -76,6 +76,7 @@ module P3DO
 	
 	input              VCE,
 	input      [31: 0] S,
+	input              SRDY,
 	
 	output             FIELD,
 
@@ -289,6 +290,7 @@ module P3DO
 		.PCSC(PCSC),
 		.LPSC_N(LPSC_N),
 		.RPSC_N(RPSC_N),
+		.SRDY(SRDY),
 		
 		.CLC(CLC),
 		.DMAREQ(DMAREQ),

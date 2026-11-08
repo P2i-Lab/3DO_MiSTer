@@ -136,7 +136,7 @@ module CLIO_VIDEO
 				if (HCOUNT == 11'd1340 - 1) begin
 					WRITE_EN <= 1;
 				end
-				if (HCOUNT == 11'd1400 - 1) begin
+				if (HCOUNT == 11'd1472 - 1) begin//colour words wait for the DDR3 (MADAM_SPORT)
 					WRITE_EN <= 0;
 				end
 			end
