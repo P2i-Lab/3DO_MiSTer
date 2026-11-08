@@ -14,6 +14,8 @@
 //   --kanji FILE        kanji ROM: Main_MiSTer takes kanji.rom from the folder of the disc
 //   --save FILE         start with this .sav (copied to DIR/saves)
 //   --max-wall S        stop after S seconds of real time
+//   --trap N            keep the last N CPU bus cycles; the first opcode fetch outside DRAM/VRAM and
+//                       the ROM (or the --trap-ok LO-HI ranges) writes them to DIR/trap.txt and stops
 #include <verilated.h>
 #include "Vsim_top.h"
 #include "Vsim_top__Dpi.h"
@@ -217,6 +219,16 @@ static std::vector<Watch> watches;
 static int watch_count = 0, watch_max = 200, watch_from = 0;
 static bool watch_writes = false;
 
+// --trap N: the last N CPU bus cycles (opcode fetches with the opcode, data reads and writes) are
+// kept; the first opcode fetch outside the places where code can be (DRAM and VRAM 0-2FFFFF, the
+// ROM 3000000-30FFFFF, or the --trap-ok LO-HI ranges) writes them to DIR/trap.txt and ends the run
+// (where the CPU went astray)
+struct BusEvent { uint64_t cyc; uint32_t a, d; int frame; char kind; };
+static std::vector<BusEvent> trap_ring;
+static size_t trap_pos = 0, trap_count = 0;
+static std::vector<Watch> trap_ok;
+static bool trap_hit = false;
+
 static std::chrono::steady_clock::time_point wall0;
 
 static bool want_png(int f)
@@ -337,6 +349,21 @@ static void tick()
 				       top->DBG_WRITE ? "write" : "read ", a, top->DBG_WRITE ? top->DBG_CPU_DO : top->DBG_CPU_DI);
 				break;
 			}
+		}
+	}
+	if (!trap_ring.empty() && (top->DBG_FETCH || top->DBG_READ || top->DBG_WRITE)) {
+		BusEvent &e = trap_ring[trap_pos];
+		e.cyc = cyc;
+		e.a = top->DBG_CPU_A;
+		e.d = top->DBG_WRITE ? top->DBG_CPU_DO : top->DBG_CPU_DI;
+		e.frame = frame_no;
+		e.kind = top->DBG_FETCH ? 'F' : top->DBG_WRITE ? 'W' : 'R';
+		trap_pos = (trap_pos + 1) % trap_ring.size();
+		if (trap_count < trap_ring.size()) trap_count++;
+		if (top->DBG_FETCH && !trap_hit) {
+			bool ok = false;
+			for (auto &w : trap_ok) if (e.a >= w.lo && e.a <= w.hi) { ok = true; break; }
+			if (!ok) trap_hit = true;
 		}
 	}
 
@@ -599,6 +626,12 @@ int main(int argc, char **argv)
 		else if (a == "--watch-max") watch_max = atoi(next().c_str());
 		else if (a == "--watch-from") watch_from = atoi(next().c_str());
 		else if (a == "--watch-writes") watch_writes = true;
+		else if (a == "--trap") trap_ring.resize(std::max(1000, atoi(next().c_str())));
+		else if (a == "--trap-ok") {
+			Watch w;
+			if (sscanf(next().c_str(), "%x-%x", &w.lo, &w.hi) != 2) { fprintf(stderr, "--trap-ok LO-HI (hex)\n"); return 2; }
+			trap_ok.push_back(w);
+		}
 		else if (a == "--pc-hist") {
 			if (sscanf(next().c_str(), "%d-%d", &pch_f1, &pch_f2) != 2) { fprintf(stderr, "--pc-hist F1-F2\n"); return 2; }
 		}
@@ -633,6 +666,10 @@ int main(int argc, char **argv)
 		else { fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
 	}
 	if (bios.empty()) { fprintf(stderr, "usage: %s --bios FILE [--cd FILE] [options]\n", argv[0]); return 2; }
+	if (!trap_ring.empty() && trap_ok.empty()) {
+		trap_ok.push_back({ 0x00000000, 0x002FFFFF });
+		trap_ok.push_back({ 0x03000000, 0x030FFFFF });
+	}
 
 	crc_init();
 	std::string home = out_dir + "/home", saves = out_dir + "/saves";
@@ -678,6 +715,22 @@ int main(int argc, char **argv)
 				printf("[sim] wall time limit reached\n");
 				break;
 			}
+		}
+		if (trap_hit) {
+			run(64);   // a few more cycles after the stray fetch
+			std::string tp = out_dir + "/trap.txt";
+			FILE *f = fopen(tp.c_str(), "w");
+			if (f) {
+				size_t first = (trap_pos + trap_ring.size() - trap_count) % trap_ring.size();
+				for (size_t i = 0; i < trap_count; i++) {
+					const BusEvent &e = trap_ring[(first + i) % trap_ring.size()];
+					fprintf(f, "%llu %d %c %08X %08X\n", (unsigned long long)e.cyc, e.frame, e.kind, e.a, e.d);
+				}
+				fclose(f);
+			}
+			printf("[sim] trap: opcode fetch outside the code areas at t=%.6f s frame %d, last %zu bus cycles in %s\n",
+			       cyc / 50e6, frame_no, trap_count, tp.c_str());
+			break;
 		}
 	}
 
