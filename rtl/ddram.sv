@@ -67,6 +67,9 @@ module ddram
 	
 	reg  [ 63:  0] dout_buf;
 	reg            burst_read_lbusy = 0,burst_read_rbusy = 0;
+	reg            burst_read_lfirst = 0,burst_read_rfirst = 0;	//the next burst of this read is its first
+	reg            burst_read_rprio = 0;							//right bank first when both banks wait
+	reg  [  6:  0] burst_read_end;
 	reg            burst_write_lbusy = 0,burst_write_rbusy = 0;
 	reg            read_lbusy = 0,read_rbusy = 0;
 	reg            write_lpend = 0,write_rpend = 0;
@@ -172,12 +175,14 @@ module ddram
 		end else if (blrd && !old_blrd) begin
 			burst_laddr <= bladdr;
 			burst_read_lbusy <= 1;
+			burst_read_lfirst <= 1;
 		end
 		if (rst) begin
 			burst_read_rbusy <= 0;
 		end else if (brrd && !old_brrd) begin
 			burst_raddr <= braddr;
 			burst_read_rbusy <= 1;
+			burst_read_rfirst <= 1;
 		end
 		
 		if (rst) begin
@@ -320,26 +325,33 @@ module ddram
 						brte <= 1;
 						state       <= 4'd1;
 					end
-					else if (burst_read_lbusy) begin 
+					//The two banks take turns, and the first burst of a read transfer is short: the video
+					//line reads its two banks a few cycles apart, and both must reach the serial registers
+					//before the line starts.
+					else if (burst_read_lbusy && !(burst_read_rbusy && burst_read_rprio && burst_raddr != burst_laddr)) begin
 						burst_lact <= 1;
 						if (burst_read_rbusy && burst_raddr == burst_laddr) burst_ract <= 1;
+						else burst_read_rprio <= 1;
 						vram_fw_baddr <= burst_laddr[19:3];
 						vram_fw_brd <= 1;
 						ram_address <= {8'b00000000,burst_laddr[19:3],2'b00};
 						ram_ba      <= 8'hFF;
 						ram_read 	<= 1;
-						ram_burst   <= 8'd128 - burst_laddr[9:3];
+						ram_burst   <= burst_read_lfirst && burst_laddr[9:3] < 7'd112 ? 8'd16 : 8'd128 - burst_laddr[9:3];
+						burst_read_end <= burst_read_lfirst && burst_laddr[9:3] < 7'd112 ? burst_laddr[9:3] + 7'd15 : 7'd127;
 						rpos        <= {1'b0,burst_laddr[9:3]};
 						state       <= 4'd2;
 					end
 					else if (burst_read_rbusy) begin 
 						burst_ract <= 1;
+						burst_read_rprio <= 0;
 						vram_fw_baddr <= burst_raddr[19:3];
 						vram_fw_brd <= 1;
 						ram_address <= {8'b00000000,burst_raddr[19:3],2'b00};
 						ram_ba      <= 8'hFF;
 						ram_read 	<= 1;
-						ram_burst   <= 8'd128 - burst_raddr[9:3];
+						ram_burst   <= burst_read_rfirst && burst_raddr[9:3] < 7'd112 ? 8'd16 : 8'd128 - burst_raddr[9:3];
+						burst_read_end <= burst_read_rfirst && burst_raddr[9:3] < 7'd112 ? burst_raddr[9:3] + 7'd15 : 7'd127;
 						rpos        <= {1'b0,burst_raddr[9:3]};
 						state       <= 4'd2;
 					end
@@ -482,9 +494,16 @@ module ddram
 					vram_fw_baddr <= vram_fw_baddr + 17'h00001;
 					
 					rpos <= rpos + 8'd1;
-					if (rpos[6:0] == 7'd127) begin
-						if (burst_lact) burst_read_lbusy <= 0;
-						if (burst_ract) burst_read_rbusy <= 0;
+					if (rpos[6:0] == burst_read_end) begin
+						if (rpos[6:0] == 7'd127) begin
+							if (burst_lact) burst_read_lbusy <= 0;
+							if (burst_ract) burst_read_rbusy <= 0;
+						end else begin
+							if (burst_lact) burst_laddr <= {burst_laddr[19:10],rpos[6:0] + 7'd1,1'b0};
+							if (burst_ract) burst_raddr <= {burst_raddr[19:10],rpos[6:0] + 7'd1,1'b0};
+						end
+						if (burst_lact) burst_read_lfirst <= 0;
+						if (burst_ract) burst_read_rfirst <= 0;
 						burst_lact <= 0;
 						burst_ract <= 0;
 						state <= 4'd3;
