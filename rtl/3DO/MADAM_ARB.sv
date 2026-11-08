@@ -22,6 +22,7 @@ module MADAM_ARB
 	
 	//EXTP
 	input              CLIO_REQ,
+	input              CLIO_BUSY,
 	input              EXTP_REQ,
 	output reg         EXTP_ACK,
 	output reg         EXTP_GRANT,
@@ -135,7 +136,9 @@ module MADAM_ARB
 			
 			case (BUS_ST)
 				BUS_IDLE: if (PHASE2) begin
-					if (CLIO_REQ) begin
+					//While CLIO works on an access it has taken (XBUS), the CPU waits anyway: the video
+					//transfers, which must keep up with the display, go first.
+					if (CLIO_REQ && !(CLIO_BUSY && (VIDMID_REQ || CLUTWR_REQ || VIDOUT_REQ))) begin
 						CPU_GRANT_INT <= 1;
 					end
 					else if (!CPU_READY && !SE_RUN && !HI_PRIO_REQ) begin
