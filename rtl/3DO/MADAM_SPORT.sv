@@ -205,7 +205,7 @@ module MADAM_SPORT
 				if (PEND && HCOUNT >= 11'd1340 - 1) begin
 					CNT <= '0;
 					PEND <= 0;
-					CLUT_TRANS_EXEC <= CLUTXEN;
+					CLUT_TRANS_EXEC <= CLUTXEN && CLUT_DMACTL.LEN != 6'd0;//an entry without colour words shifts nothing
 				end
 				
 				if (CLUT_TRANS_EXEC) begin
