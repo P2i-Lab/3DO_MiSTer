@@ -314,7 +314,7 @@ module MADAM
 				MATH_DIV: begin
 					DIV_DELAY <= DIV_DELAY - 1'd1;
 					if (DIV_DELAY <= 0) begin
-						MATH_M <= MATH_DIV_RES[47:16];
+						MATH_M <= MATH_DIV_RES[47:16] + ((MATH_DIV_RES[63] && MATH_DIV_RES[15:0] != 16'h0000) ? 32'd1 : 32'd0);	//16.16 quotient cut toward zero
 						MATH_ST <= MATH_MUL;
 					end
 				end
