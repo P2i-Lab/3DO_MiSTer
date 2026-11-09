@@ -315,7 +315,7 @@ module MADAM_SE
 							LINE_CNT <= 10'd0;
 							SPRDATA_A_FIRST <= 1;
 							SPRDATA_ENG_B_DISABLE <= 1;
-							if (LINE_LAST && !LRFORM) begin
+							if (LINE_LAST && !LRFORM && SCOB_FLAG.ACE) begin
 								LINE_CNT <= 10'd1;
 								SPRDATA_B_FIRST <= 1;
 								SPRDATA_ENG_B_DISABLE <= FB_IN_DRAM;
@@ -333,7 +333,7 @@ module MADAM_SE
 					LINE_CNT <= 10'd0;
 					SPRDATA_A_FIRST <= 1;
 					SPRDATA_ENG_B_DISABLE <= 1;
-					if (LINE_LAST && !LRFORM) begin
+					if (LINE_LAST && !LRFORM && SCOB_FLAG.ACE) begin
 						LINE_CNT <= 10'd1;
 						SPRDATA_B_FIRST <= 1;
 						SPRDATA_ENG_B_DISABLE <= FB_IN_DRAM;
