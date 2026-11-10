@@ -198,6 +198,207 @@ module P3DO_CDROM
 	//Absolute position (binary MSF) of the next block to transfer, for READ SUBQ
 	bit  [ 7: 0] POS_M,POS_S,POS_F;
 
+	//Time of the data reads, measured on a real FZ-10 with a CD-R (bench 3.0 CD AVANCE, 3.1 CD SAUTS).
+	//One block every T: 6688 us at double speed, 13376 us at single speed. A read of another block waits for the
+	//disc: that block passes under the head g * T + n * R after the last one (g blocks further, R = one turn of
+	//the disc), n being the smallest that gives the pick-up the time L to get there. From 256 blocks the seek takes
+	//a time that grows with the distance. After a pause, the blocks that follow the last one are in the buffer of the drive.
+	function bit [17:0] CD_REV(input bit [5:0] a);
+		case (a)
+			6'd0: CD_REV = 18'd68349;
+			6'd1: CD_REV = 18'd71489;
+			6'd2: CD_REV = 18'd74496;
+			6'd3: CD_REV = 18'd77387;
+			6'd4: CD_REV = 18'd80174;
+			6'd5: CD_REV = 18'd82867;
+			6'd6: CD_REV = 18'd85476;
+			6'd7: CD_REV = 18'd88007;
+			6'd8: CD_REV = 18'd90467;
+			6'd9: CD_REV = 18'd92862;
+			6'd10: CD_REV = 18'd95197;
+			6'd11: CD_REV = 18'd97476;
+			6'd12: CD_REV = 18'd99703;
+			6'd13: CD_REV = 18'd101881;
+			6'd14: CD_REV = 18'd104014;
+			6'd15: CD_REV = 18'd106103;
+			6'd16: CD_REV = 18'd108153;
+			6'd17: CD_REV = 18'd110164;
+			6'd18: CD_REV = 18'd112139;
+			6'd19: CD_REV = 18'd114080;
+			6'd20: CD_REV = 18'd115989;
+			6'd21: CD_REV = 18'd117866;
+			6'd22: CD_REV = 18'd119714;
+			6'd23: CD_REV = 18'd121535;
+			6'd24: CD_REV = 18'd123328;
+			6'd25: CD_REV = 18'd125095;
+			6'd26: CD_REV = 18'd126838;
+			6'd27: CD_REV = 18'd128557;
+			6'd28: CD_REV = 18'd130254;
+			6'd29: CD_REV = 18'd131929;
+			6'd30: CD_REV = 18'd133582;
+			6'd31: CD_REV = 18'd135216;
+			6'd32: CD_REV = 18'd136830;
+			6'd33: CD_REV = 18'd138425;
+			6'd34: CD_REV = 18'd140002;
+			6'd35: CD_REV = 18'd141562;
+			6'd36: CD_REV = 18'd143104;
+			6'd37: CD_REV = 18'd144630;
+			6'd38: CD_REV = 18'd146140;
+			6'd39: CD_REV = 18'd147635;
+			6'd40: CD_REV = 18'd149115;
+			6'd41: CD_REV = 18'd150580;
+			6'd42: CD_REV = 18'd152031;
+			6'd43: CD_REV = 18'd153468;
+			6'd44: CD_REV = 18'd154892;
+			6'd45: CD_REV = 18'd156303;
+			6'd46: CD_REV = 18'd157701;
+			6'd47: CD_REV = 18'd159087;
+			6'd48: CD_REV = 18'd160462;
+			6'd49: CD_REV = 18'd161824;
+			6'd50: CD_REV = 18'd163175;
+			6'd51: CD_REV = 18'd164515;
+			6'd52: CD_REV = 18'd165844;
+			6'd53: CD_REV = 18'd167163;
+			6'd54: CD_REV = 18'd168471;
+			6'd55: CD_REV = 18'd169769;
+			6'd56: CD_REV = 18'd171057;
+			6'd57: CD_REV = 18'd172336;
+			6'd58: CD_REV = 18'd173605;
+			6'd59: CD_REV = 18'd174865;
+			6'd60: CD_REV = 18'd176116;
+			6'd61: CD_REV = 18'd177359;
+			6'd62: CD_REV = 18'd178592;
+			6'd63: CD_REV = 18'd179817;
+			default: CD_REV = 18'd150000;
+		endcase
+	endfunction
+	function bit [19:0] CD_SEEK(input bit [3:0] k);	//us, for 256 << k blocks
+		case (k)
+			4'd0: CD_SEEK = 20'd96000;
+			4'd1: CD_SEEK = 20'd102000;
+			4'd2: CD_SEEK = 20'd111000;
+			4'd3: CD_SEEK = 20'd123000;
+			4'd4: CD_SEEK = 20'd140000;
+			4'd5: CD_SEEK = 20'd163000;
+			4'd6: CD_SEEK = 20'd197000;
+			4'd7: CD_SEEK = 20'd245000;
+			4'd8: CD_SEEK = 20'd312000;
+			4'd9: CD_SEEK = 20'd408000;
+			4'd10: CD_SEEK = 20'd542000;
+			4'd11: CD_SEEK = 20'd760000;
+			default: CD_SEEK = 20'd760000;
+		endcase
+	endfunction
+	function bit [19:0] MSFtoLBA(input bit [7:0] m, input bit [7:0] s, input bit [7:0] f);
+		return {m,12'd0} + {4'd0,m,8'd0} + {5'd0,m,7'd0} + {8'd0,m,4'd0} + {10'd0,m,2'd0} + {6'd0,s,6'd0} + {9'd0,s,3'd0} + {11'd0,s,1'd0} + {12'd0,s} + {12'd0,f};
+	endfunction
+
+	bit          SPEED2;
+	wire [ 7: 0] STATUS_OUT = STATUS | {6'd0,SPEED2,1'b0};	//bit 1: double speed (0xE3 on the FZ-10, 0x80 in Mode set page 3)
+	bit          SPEED_LAST = 0;
+	bit          PC_START,BLK_PEND,BLK_SENT;
+	bit          PC_BUSY = 0;
+	bit  [ 4: 0] US_DIV = '0;
+	bit  [23: 0] SINCE_BLK = '1;
+	bit  [23: 0] PACE_CNT = '0;
+	bit  [19: 0] LAST_LBA = '0;
+	wire [19: 0] POS_LBA = MSFtoLBA(POS_M,POS_S,POS_F);
+	wire [19: 0] CD_RQ_LBA = MSFtoLBA(COMMAND[1],COMMAND[2],COMMAND[3]);
+	wire [15: 0] CD_T = SPEED2 ? 16'd6688 : 16'd13376;
+	wire         US_TICK = CE && US_DIV == 5'd24;
+	bit signed [20: 0] PC_G;
+	wire [19: 0] PC_D = PC_G[20] ? 20'd0 - PC_G[19:0] : PC_G[19:0];
+	wire         PC_BACK = PC_G[20] || PC_G == 21'sd0;
+	wire [ 3: 0] PC_MSB = PC_D[18] ? 4'd10 : PC_D[17] ? 4'd9 : PC_D[16] ? 4'd8 : PC_D[15] ? 4'd7 : PC_D[14] ? 4'd6 : PC_D[13] ? 4'd5 :
+	                      PC_D[12] ? 4'd4 : PC_D[11] ? 4'd3 : PC_D[10] ? 4'd2 : PC_D[9] ? 4'd1 : 4'd0;
+	wire [ 2: 0] PC_FRAC = 3'((PC_D >> (5'd5 + 5'(PC_MSB))) & 20'd7);
+	wire [20: 0] PC_SEEK = {1'b0,CD_SEEK(PC_MSB)} + ((({1'b0,CD_SEEK(PC_MSB + 4'd1)} - {1'b0,CD_SEEK(PC_MSB)}) * PC_FRAC) >> 3);
+	typedef enum bit [2:0] { P_IDLE, P_CLASS, P_SUB, P_DIV, P_FIN } PaceState_t;
+	PaceState_t PST;
+	always @(posedge CLK or negedge RST_N) begin
+		bit [23:0] E,L;
+		bit [26:0] P,REM;
+		bit        NEG;
+		bit [18:0] R;
+		bit [ 3:0] K;
+
+		if (!RST_N) begin
+			PST <= P_IDLE;
+			PC_BUSY <= 0;
+			US_DIV <= '0;
+			SINCE_BLK <= '1;
+			PACE_CNT <= '0;
+			LAST_LBA <= '0;
+			SPEED_LAST <= 1;
+		end else begin
+			if (CE) US_DIV <= US_DIV == 5'd24 ? 5'd0 : US_DIV + 5'd1;
+			if (US_TICK) begin
+				if (SINCE_BLK != '1) SINCE_BLK <= SINCE_BLK + 24'd1;
+				if (PACE_CNT) PACE_CNT <= PACE_CNT - 24'd1;
+			end
+			if (BLK_SENT) begin
+				SINCE_BLK <= '0;
+				LAST_LBA <= POS_LBA;
+				PACE_CNT <= {8'd0,CD_T};
+			end
+
+			case (PST)
+				P_IDLE: if (PC_START) begin
+					PC_G <= {1'b0,CD_RQ_LBA} - {1'b0,LAST_LBA};
+					E <= SINCE_BLK;
+					PC_BUSY <= 1;
+					PST <= P_CLASS;
+				end
+
+				P_CLASS: begin
+					SPEED_LAST <= SPEED2;
+					R <= SPEED2 ? {1'b0,CD_REV(CD_RQ_LBA[18:13])} : {CD_REV(CD_RQ_LBA[18:13]),1'b0};
+					L <= PC_BACK ? (SPEED2 ? 24'd40000 : 24'd60000) :
+					     PC_D < 20'd16 ? (SPEED2 ? 24'd30000 : 24'd46000) :
+					                     (SPEED2 ? 24'd41000 : 24'd64000);
+					PST <= P_IDLE;
+					PC_BUSY <= 0;
+					if (SPEED2 != SPEED_LAST) begin
+						PACE_CNT <= SPEED2 ? 24'd11440 : 24'd154784;
+					end else if (PC_G == 21'sd1) begin
+						PACE_CNT <= E < {8'd0,CD_T} ? {8'd0,CD_T} - E : 24'd2200;
+					end else if (PC_G >= 21'sd2 && PC_G <= 21'sd8 && E >= {8'd0,CD_T} * PC_G[3:0]) begin
+						PACE_CNT <= PC_G == 21'sd8 ? 24'd2300 : 24'd6500;
+					end else if (PC_D >= 20'd256) begin
+						PACE_CNT <= SPEED2 ? {3'd0,PC_SEEK} : {3'd0,PC_SEEK} + {5'd0,PC_SEEK[20:2]};
+					end else begin
+						PC_BUSY <= 1;
+						PST <= P_SUB;
+					end
+				end
+
+				P_SUB: begin	//g * T - E - L
+					P = {7'd0,PC_D[7:0],12'd0} + {8'd0,PC_D[7:0],11'd0} + {10'd0,PC_D[7:0],9'd0} + {14'd0,PC_D[7:0],5'd0};
+					if (!SPEED2) P = {P[25:0],1'b0};
+					P = (PC_G[20] ? 27'd0 - P : P) - {3'd0,E} - {3'd0,L};
+					NEG <= P[26];
+					REM <= P[26] ? 27'd0 - P : P;
+					K <= 4'd10;
+					PST <= P_DIV;
+				end
+
+				P_DIV: begin	//remainder of REM / R, one bit per clock
+					if (REM >= ({8'd0,R} << K)) REM <= REM - ({8'd0,R} << K);
+					if (K == 4'd0) PST <= P_FIN;
+					else K <= K - 4'd1;
+				end
+
+				P_FIN: begin
+					PACE_CNT <= L + ((NEG && REM != '0) ? {5'd0,R} - REM[23:0] : REM[23:0]);
+					PST <= P_IDLE;
+					PC_BUSY <= 0;
+				end
+
+				default: PST <= P_IDLE;
+			endcase
+		end
+	end
+
 	//READ SUBQ: TOC scan
 	bit  [ 2: 0] SQ_STEP;
 	bit  [ 6: 0] SQ_T,SQ_LAST;
@@ -260,6 +461,8 @@ module P3DO_CDROM
 			{BLK_DENSITY,BLK_LEN,BLK_ERRB,BLK_SUBC} <= '0;
 			READING <= 0;
 			{POS_M,POS_S,POS_F} <= {8'd0,8'd2,8'd0};
+			{PC_START,BLK_PEND,BLK_SENT} <= '0;
+			SPEED2 <= 1;
 			HOST_COMM[7] <= '0;
 
 `ifdef DEBUG
@@ -284,8 +487,11 @@ module P3DO_CDROM
 
 			{BLK_DENSITY,BLK_LEN,BLK_ERRB,BLK_SUBC} <= '0;
 			READING <= 0;
+			{PC_START,BLK_PEND,BLK_SENT} <= '0;
 		end
 		else begin
+			PC_START <= 0;
+			BLK_SENT <= 0;
 `ifdef DEBUG
 			if (DT_EN && !ST_EN && CE) DBG_WAIT_CNT <= DBG_WAIT_CNT + 1'd1;
 `endif
@@ -437,6 +643,7 @@ module P3DO_CDROM
 						8'h0B: begin	//Flush
 							//stop the current read here and in Main_MiSTer
 							READING <= 0;
+							BLK_PEND <= 0;
 							DT_EN <= 0;
 							DATA_CNT <= '0;
 							DISC_DATA_RPOS <= '0;
@@ -467,7 +674,7 @@ module P3DO_CDROM
 								{BLK_ERRB,BLK_SUBC} <= COMMAND[5][7:6];
 							end
 							else if (COMMAND[1] == 8'h03) begin //Set speed
-//								SPEED <= COMMAND[3];
+								SPEED2 <= COMMAND[2][7];
 							end
 							else if (COMMAND[1] == 8'h05) begin //Set volume
 								
@@ -486,6 +693,8 @@ module P3DO_CDROM
 							RD_COUNT <= {COMMAND[4],COMMAND[5],COMMAND[6]};
 							{POS_M,POS_S,POS_F} <= {COMMAND[1],COMMAND[2],COMMAND[3]};
 							READING <= 1;
+							BLK_PEND <= 0;
+							PC_START <= 1;
 							CMD_ST <= CMD_EXEC;
 						end
 						
@@ -557,7 +766,7 @@ module P3DO_CDROM
 							if (STAT_FIFO_WPOS == 4'd0) begin
 								STAT_DATA[0] <= 8'h02;
 							end else if (STAT_FIFO_WPOS == 4'd1) begin
-								STAT_DATA[1] <= STATUS;
+								STAT_DATA[1] <= STATUS_OUT;
 								//ERROR (disc out after a failed spin-up) is kept for the Read error command
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -570,7 +779,7 @@ module P3DO_CDROM
 							if (STAT_FIFO_WPOS == 4'd0) begin
 								STAT_DATA[0] <= 8'h06;
 							end else if (STAT_FIFO_WPOS == 4'd1) begin
-								STAT_DATA[1] <= STATUS;
+								STAT_DATA[1] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -583,7 +792,7 @@ module P3DO_CDROM
 							if (STAT_FIFO_WPOS == 4'd0) begin
 								STAT_DATA[0] <= 8'h09;
 							end else if (STAT_FIFO_WPOS == 4'd1) begin
-								STAT_DATA[1] <= STATUS;
+								STAT_DATA[1] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -596,7 +805,7 @@ module P3DO_CDROM
 							if (STAT_FIFO_WPOS == 4'd0) begin
 								STAT_DATA[0] <= 8'h10;
 							end else if (STAT_FIFO_WPOS == 4'd1) begin
-								STAT_DATA[1] <= STATUS;
+								STAT_DATA[1] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 //								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -613,7 +822,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS == 4'd2) begin
 								STAT_DATA[2] <= 8'h55;
 							end else if (STAT_FIFO_WPOS == 4'd3) begin
-								STAT_DATA[3] <= STATUS;
+								STAT_DATA[3] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -628,7 +837,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd8) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= ERROR;
 							end else if (STAT_FIFO_WPOS == 4'd9) begin
-								STAT_DATA[9] <= STATUS;
+								STAT_DATA[9] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -640,7 +849,7 @@ module P3DO_CDROM
 							STAT_FIFO_WPOS <= STAT_FIFO_WPOS + 4'd1;
 							STAT_DATA[STAT_FIFO_WPOS] <= ID_STAT[STAT_FIFO_WPOS];
 							if (STAT_FIFO_WPOS == 4'd11) begin
-								STAT_DATA[11] <= STATUS;
+								STAT_DATA[11] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -658,7 +867,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd5) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= 8'h00;
 							end else if (STAT_FIFO_WPOS == 4'd6) begin
-								STAT_DATA[6] <= STATUS;
+								STAT_DATA[6] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -674,7 +883,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd6) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= DISC_TOC_Q;
 							end else if (STAT_FIFO_WPOS == 4'd7) begin
-								STAT_DATA[7] <= STATUS;
+								STAT_DATA[7] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -690,7 +899,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd8) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= DISC_TOC_Q;
 							end else if (STAT_FIFO_WPOS == 4'd9) begin
-								STAT_DATA[9] <= STATUS;
+								STAT_DATA[9] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -705,7 +914,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd6) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= 8'h00;
 							end else if (STAT_FIFO_WPOS == 4'd7) begin
-								STAT_DATA[7] <= STATUS;
+								STAT_DATA[7] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -728,7 +937,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS == 4'd5) begin
 								STAT_DATA[5] <= COMMAND[1] == 8'h00 ? {BLK_ERRB,BLK_SUBC,6'b000000} : 8'h00;
 							end else if (STAT_FIFO_WPOS == 4'd6) begin
-								STAT_DATA[6] <= STATUS;
+								STAT_DATA[6] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -742,7 +951,7 @@ module P3DO_CDROM
 								if (STAT_FIFO_WPOS == 4'd0) begin
 									STAT_DATA[0] <= 8'h87;
 								end else begin
-									STAT_DATA[1] <= STATUS | 8'h10;
+									STAT_DATA[1] <= STATUS_OUT | 8'h10;
 									ST_EN <= 1;
 									CMD_REC <= 0;
 									CMD_ST <= CMD_IDLE;
@@ -777,8 +986,8 @@ module P3DO_CDROM
 									default: begin
 										SQ_REL = SQ_IDX ? MSFSub({POS_M,POS_S,POS_F},{SQ_TM,SQ_TS,SQ_TF}) : MSFSub({SQ_TM,SQ_TS,SQ_TF},{POS_M,POS_S,POS_F});
 										STAT_DATA[0] <= 8'h87;
-										STAT_DATA[1] <= 8'h00;
-										STAT_DATA[2] <= {SQ_TCTL[3:0],4'h1};	//control, ADR 1 (position)
+										STAT_DATA[1] <= 8'h80;
+										STAT_DATA[2] <= SQ_TCTL;	//ADR 1 (position), control
 										STAT_DATA[3] <= ToBCD(SQ_TRK);
 										STAT_DATA[4] <= {7'd0,SQ_IDX};
 										STAT_DATA[5] <= POS_M;
@@ -787,7 +996,7 @@ module P3DO_CDROM
 										STAT_DATA[8] <= SQ_REL[23:16];
 										STAT_DATA[9] <= SQ_REL[15:8];
 										STAT_DATA[10] <= SQ_REL[7:0];
-										STAT_DATA[11] <= STATUS;
+										STAT_DATA[11] <= STATUS_OUT;
 										ERROR <= ERROR_NO_ERR;
 										ST_EN <= 1;
 										CMD_REC <= 0;
@@ -804,7 +1013,7 @@ module P3DO_CDROM
 							end else if (STAT_FIFO_WPOS <= 4'd10) begin
 								STAT_DATA[STAT_FIFO_WPOS] <= 8'h00;
 							end else if (STAT_FIFO_WPOS == 4'd11) begin
-								STAT_DATA[11] <= STATUS;
+								STAT_DATA[11] <= STATUS_OUT;
 								ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -817,7 +1026,7 @@ module P3DO_CDROM
 							if (STAT_FIFO_WPOS == 4'd0) begin
 								STAT_DATA[0] <= COMMAND[0];
 							end else begin
-								STAT_DATA[1] <= STATUS | {3'b000,REPLY_ERR,4'b0000};
+								STAT_DATA[1] <= STATUS_OUT | {3'b000,REPLY_ERR,4'b0000};
 								if (!REPLY_ERR) ERROR <= ERROR_NO_ERR;
 								ST_EN <= 1;
 								CMD_REC <= 0;
@@ -829,7 +1038,11 @@ module P3DO_CDROM
 				
 			endcase
 			
-			if (CDD_BLOCK_READY && READING) begin
+			//The block came from the host: the console gets it when the disc would have brought it
+			if (CDD_BLOCK_READY && READING) BLK_PEND <= 1;
+			if (BLK_PEND && READING && !DT_EN && !PC_BUSY && !PC_START && PACE_CNT == '0) begin
+				BLK_PEND <= 0;
+				BLK_SENT <= 1;
 				DT_EN <= 1;
 				if (NEXT_FRAME_CNT == RD_COUNT) begin
 					ST_DELAY_CNT <= 8'd192;
