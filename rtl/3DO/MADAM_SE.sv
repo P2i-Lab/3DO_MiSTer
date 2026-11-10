@@ -1038,13 +1038,20 @@ module MADAM_SE
 			T = (~|{R,G,B} & ~SCOB_FLAG.BGND) | TRANSPARENT;
 			casex ({SCOB_PRE0.LINEAR,SCOB_PRE0.BPP})
 				4'b0101: {MR,MG,MB} = {PIN_A[ 7: 5],PIN_A[ 7: 5],PIN_A[ 7: 5]};
-				4'b011x: {MR,MG,MB} = {PIN_A[13:11],PIN_A[10: 8],PIN_A[ 7: 5]};
+				4'bx11x: {MR,MG,MB} = {PIN_A[13:11],PIN_A[10: 8],PIN_A[ 7: 5]};
 				default: {MR,MG,MB} = {    3'b000,    3'b000,    3'b000};
 			endcase
 			RMODE = PPMPC.S1 == 1'd1 || PPMPC.S2 == 2'd2;
 			SPH = SCOB_FLAG.PIPPOS ? B[0] : SUB_H;
 			SPV = SCOB_FLAG.PIPPOS ? D : SUB_V;
 		
+			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1, PIXELS EN CLAIR 4/4)
+			case (SCOB_PRE1.TLLSBIPN)
+				2'd0: B[0] = 1'b0;
+				2'd1: ;
+				2'd2: B[0] = B[4];
+				2'd3: B[0] = G[0];
+			endcase
 			IPN_A <= {D,R,G,B,T,MR,MG,MB,RMODE,SPH,SPV};
 		end
 	end
@@ -1083,13 +1090,20 @@ module MADAM_SE
 			T = (~|{R,G,B} & ~SCOB_FLAG.BGND) | TRANSPARENT_B;
 			casex ({SCOB_PRE0.LINEAR,SCOB_PRE0.BPP})
 				4'b0101: {MR,MG,MB} = {PIN_B[ 7: 5],PIN_B[ 7: 5],PIN_B[ 7: 5]};
-				4'b011x: {MR,MG,MB} = {PIN_B[13:11],PIN_B[10: 8],PIN_B[ 7: 5]};
+				4'bx11x: {MR,MG,MB} = {PIN_B[13:11],PIN_B[10: 8],PIN_B[ 7: 5]};
 				default: {MR,MG,MB} = {    3'b000,    3'b000,    3'b000};
 			endcase
 			RMODE = PPMPC.S1 == 1'd1 || PPMPC.S2 == 2'd2;
 			SPH = SCOB_FLAG.PIPPOS ? B[0] : SUB_H;
 			SPV = SCOB_FLAG.PIPPOS ? D : SUB_V;
 		
+			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1, PIXELS EN CLAIR 4/4)
+			case (SCOB_PRE1.TLLSBIPN)
+				2'd0: B[0] = 1'b0;
+				2'd1: ;
+				2'd2: B[0] = B[4];
+				2'd3: B[0] = G[0];
+			endcase
 			IPN_B <= {D,R,G,B,T,MR,MG,MB,RMODE,SPH,SPV};
 		end
 	end
@@ -1338,7 +1352,7 @@ module MADAM_SE
 				
 				CRN_PRECALC: if (CE_R) begin
 					if (CRNB_ST == CRN_PRECALC || !LRFORM) begin
-						if (MATH_A_STAT.LC && (MATH_B_STAT.LC || !LRFORM)) begin
+						if (MATH_A_STAT.LC && SCOBCTL.ASCALL && (MATH_B_STAT.LC || !LRFORM)) begin	//FZ-10: with ASCALL clear, a row outside the window is walked (107 ns per pixel)
 							CRNA_ST <= CRN_END;
 						end else begin
 							CRNA_ST <= CRN_CALC;
@@ -1477,7 +1491,7 @@ module MADAM_SE
 				
 				CRN_PRECALC: if (CE_R) begin
 					if (CRNA_ST == CRN_PRECALC || !LRFORM) begin
-						if (MATH_B_STAT.LC && (MATH_A_STAT.LC || !LRFORM)) begin
+						if (MATH_B_STAT.LC && SCOBCTL.ASCALL && (MATH_A_STAT.LC || !LRFORM)) begin
 							CRNB_ST <= CRN_END;
 						end else begin
 							CRNB_ST <= CRN_CALC;
@@ -3047,9 +3061,9 @@ module MADAM_PPMP (
 				2'b11: {MV_R,MV_G,MV_B} = {IPN.R[4:2],IPN.G[4:2],IPN.B[4:2]};
 			endcase
 			{DV1_R,DV1_G,DV1_B} = {PPMPC.DV1,PPMPC.DV1,PPMPC.DV1};
-			if (PPMPC.MS == 2'b10 && IPN.R[1:0]) DV1_R = IPN.R[1:0];
-			if (PPMPC.MS == 2'b10 && IPN.G[1:0]) DV1_G = IPN.G[1:0];
-			if (PPMPC.MS == 2'b10 && IPN.B[1:0]) DV1_B = IPN.B[1:0];
+			if (PPMPC.MS == 2'b10) DV1_R = IPN.R[1:0];
+			if (PPMPC.MS == 2'b10) DV1_G = IPN.G[1:0];
+			if (PPMPC.MS == 2'b10) DV1_B = IPN.B[1:0];
 			
 			case (PPMPC.S1)
 				1'b0: {TEMPA_R,TEMPA_G,TEMPA_B} = {IPN.R,IPN.G,IPN.B};
@@ -3122,9 +3136,9 @@ module MADAM_PPMP (
 				1'b0: {DIVR_R,DIVR_G,DIVR_B} = {{ADD_R[7:0]},{ADD_G[7:0]},{ADD_B[7:0]}};
 				1'b1: {DIVR_R,DIVR_G,DIVR_B} = {{ADD_R[7],ADD_R[7:1]},{ADD_G[7],ADD_G[7:1]},{ADD_B[7],ADD_B[7:1]}};
 			endcase
-			PEN_R = !CLIP_PIPE && ((|DIVR_R[7:5] && !NEG_PIPE) || (!DIVR_R[7] && |DIVR_R[6:5] && NEG_PIPE)) ? 5'h1F : !CLIP_PIPE && DIVR_R[7] ? 5'h00 : DIVR_R[4:0];
-			PEN_G = !CLIP_PIPE && ((|DIVR_G[7:5] && !NEG_PIPE) || (!DIVR_G[7] && |DIVR_G[6:5] && NEG_PIPE)) ? 5'h1F : !CLIP_PIPE && DIVR_G[7] ? 5'h00 : DIVR_G[4:0];
-			PEN_B = !CLIP_PIPE && ((|DIVR_B[7:5] && !NEG_PIPE) || (!DIVR_B[7] && |DIVR_B[6:5] && NEG_PIPE)) ? 5'h1F : !CLIP_PIPE && DIVR_B[7] ? 5'h00 : DIVR_B[4:0];
+			PEN_R = !CLIP_PIPE && ((|DIVR_R[7:5] && !NEG_PIPE && !ADDB6_R_PIPE) || (!DIVR_R[7] && |DIVR_R[6:5] && (NEG_PIPE || ADDB6_R_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_R[7] ? 5'h00 : DIVR_R[4:0];
+			PEN_G = !CLIP_PIPE && ((|DIVR_G[7:5] && !NEG_PIPE && !ADDB6_G_PIPE) || (!DIVR_G[7] && |DIVR_G[6:5] && (NEG_PIPE || ADDB6_G_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_G[7] ? 5'h00 : DIVR_G[4:0];
+			PEN_B = !CLIP_PIPE && ((|DIVR_B[7:5] && !NEG_PIPE && !ADDB6_B_PIPE) || (!DIVR_B[7] && |DIVR_B[6:5] && (NEG_PIPE || ADDB6_B_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_B[7] ? 5'h00 : DIVR_B[4:0];
 			
 			case (SCOBCTL.B0POS)
 				2'b00: PEN_B[0] = 0;
