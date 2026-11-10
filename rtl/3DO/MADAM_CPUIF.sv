@@ -73,11 +73,13 @@ module MADAM_CPUIF
 	wire        CPU_SPORT = (A >= 32'h03200000 && A <= 32'h032FFFFF);
 	wire        CPU_PB = AG_PBI && ~|A[31:24];
 	bit         STRETCH;
+	bit         EXTRA;
 	bit         BREAK;
 	bit         PAUSE;
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
 			STRETCH <= 1;
+			EXTRA <= 0;
 			BREAK <= 0;
 			PAUSE <= 0;
 		end
@@ -89,12 +91,16 @@ module MADAM_CPUIF
 		end
 		else if (EN && CE_R) begin
 			if (PHASE2) begin
-				if (!nMREQ && !SEQ && !SLOW_WAIT && !STRETCH) STRETCH <= 1;
+				//A non-sequential access to RAM takes one more bus frame than the two of the core: the FZ-10 spends about
+				//60 ns more on it (bench 3.0, ARM TEMPS and MEMOIRE PAS). The frame comes before the RAS frame.
+				if (!nMREQ && !SEQ && !SLOW_WAIT && !STRETCH && !EXTRA && A < 32'h00300000 && !nRW && !ICYCLE) EXTRA <= 1;
+				else if (!nMREQ && !SEQ && !SLOW_WAIT && !STRETCH && !EXTRA) STRETCH <= 1;
+				else if (EXTRA) begin EXTRA <= 0; STRETCH <= 1; end
 				else if (GRANT) STRETCH <= 0;
 				
 				if (!GRANT && !BREAK) BREAK <= 1;
-				else if (GRANT && CPU_PB && !(ICYCLE && SEQ) && !STRETCH && !BREAK) BREAK <= 1;
-				else if (GRANT && CPU_SPORT && !STRETCH && !BREAK) STRETCH <= 1;
+				else if (GRANT && CPU_PB && !(ICYCLE && SEQ) && !STRETCH && !EXTRA && !BREAK) BREAK <= 1;
+				else if (GRANT && CPU_SPORT && !STRETCH && !EXTRA && !BREAK) STRETCH <= 1;
 				else if (GRANT) BREAK <= 0;
 			end
 		end
@@ -111,7 +117,7 @@ module MADAM_CPUIF
 			ICYCLE_PREV <= 0;
 		end
 		else if (EN && CPU_PH2) begin
-			if (GRANT && !STRETCH && !BREAK) begin
+			if (GRANT && !STRETCH && !EXTRA && !BREAK) begin
 				NCYCLE <= ~nMREQ & ~SEQ;
 				SCYCLE <= ~nMREQ &  SEQ;
 				ICYCLE <=  nMREQ & ~SEQ;
@@ -119,7 +125,7 @@ module MADAM_CPUIF
 			end
 		end
 	end 
-	assign ACCESS = ~(STRETCH | BREAK | ICYCLE);
+	assign ACCESS = ~(STRETCH | EXTRA | BREAK | ICYCLE);
 
 	//SEQ comes from the CPU decode and only changes when the CPU ends a cycle, at the end of PHASE2.
 	//START is then masked for at least two clocks (PHASE2 low, or CPU_GRANT low when a DMA keeps
@@ -139,7 +145,7 @@ module MADAM_CPUIF
 		else if (EN && CE_R) begin
 			if (PHASE1) begin
 				EXEC <= 0;
-				if (GRANT && !STRETCH && !BREAK && !SLOW_WAIT) EXEC <= 1;
+				if (GRANT && !STRETCH && !EXTRA && !BREAK && !SLOW_WAIT) EXEC <= 1;
 			end
 		end
 	end 
@@ -148,7 +154,7 @@ module MADAM_CPUIF
 	wire DMA_REG_SEL = (A >= 32'h03300400 && A <= 32'h033005FF);
 	always_comb begin
 		AG_CTL = '0;
-		if (STRETCH || BREAK || ICYCLE) begin
+		if (STRETCH || EXTRA || BREAK || ICYCLE) begin
 			AG_CTL.DMA_GROUP_ADDR_SEL = 0;
 			AG_CTL.DMA_GROUP_HOLD = 1;
 			AG_CTL.DMA_REG_READ_SEL = 0;
@@ -193,10 +199,10 @@ module MADAM_CPUIF
 			nWB_FF <= nWB;
 		end
 	end
-	assign WE = ({~A_FF[1]&~A_FF[0],~A_FF[1]&A_FF[0],A_FF[1]&~A_FF[0],A_FF[1]&A_FF[0]} | {4{nWB_FF}}) & {4{~STRETCH&~BREAK&nRW_FF}};
+	assign WE = ({~A_FF[1]&~A_FF[0],~A_FF[1]&A_FF[0],A_FF[1]&~A_FF[0],A_FF[1]&A_FF[0]} | {4{nWB_FF}}) & {4{~STRETCH&~EXTRA&~BREAK&nRW_FF}};
 	
-	assign MCLK_PH1 = CPU_PH1 && GRANT && !STRETCH && !BREAK && !PAUSE;
-	assign MCLK_PH2 = CPU_PH2 && GRANT && !STRETCH && !BREAK && !PAUSE;
+	assign MCLK_PH1 = CPU_PH1 && GRANT && !STRETCH && !EXTRA && !BREAK && !PAUSE;
+	assign MCLK_PH2 = CPU_PH2 && GRANT && !STRETCH && !EXTRA && !BREAK && !PAUSE;
 	assign DBE = GRANT;
 	
 	always @(posedge CLK or negedge RST_N) begin
