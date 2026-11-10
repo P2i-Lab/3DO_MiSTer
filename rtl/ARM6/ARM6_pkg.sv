@@ -654,7 +654,8 @@ package ARM6_PKG;
 		{cl2,tmp2,cr2} = !sa[2]   ? { cl1, tmp1,  cr1} : (dir ? { 1'b0, tmp1[ 3: 0]&{ 4{rot}}|{ 4{tmp1[31]}}&{ 4{arith}}, tmp1[31: 4], tmp1[ 3]} : {tmp1[28], tmp1[27:0], { 4{1'b0}}, 1'b0 });
 		{cl3,tmp3,cr3} = !sa[3]   ? { cl2, tmp2,  cr2} : (dir ? { 1'b0, tmp2[ 7: 0]&{ 8{rot}}|{ 8{tmp2[31]}}&{ 8{arith}}, tmp2[31: 8], tmp2[ 7]} : {tmp2[24], tmp2[23:0], { 8{1'b0}}, 1'b0 });
 		{cl4,tmp4,cr4} = !sa[4]   ? { cl3, tmp3,  cr3} : (dir ? { 1'b0, tmp3[15: 0]&{16{rot}}|{16{tmp3[31]}}&{16{arith}}, tmp3[31:16], tmp3[15]} : {tmp3[16], tmp3[15:0], {16{1'b0}}, 1'b0 });
-		{cl5,tmp5,cr5} = !sa[7:5] ? { cl4, tmp4,  cr4} : (dir ? { 1'b0, tmp4[31: 0]&{32{rot}}|{32{tmp4[31]}}&{32{arith}},              tmp4[31]} : {tmp4[ 0],             {32{1'b0}}, 1'b0 });
+		//Shift by 32 or more: LSL/LSR give 0 with carry-out bit 0/bit 31 for exactly 32, and 0 above (ASR and ROR keep bit 31)
+		{cl5,tmp5,cr5} = !sa[7:5] ? { cl4, tmp4,  cr4} : (dir ? { 1'b0, tmp4[31: 0]&{32{rot}}|{32{tmp4[31]}}&{32{arith}},              tmp4[31] & (rot | arith | sa[7:5] == 3'b001)} : {tmp4[ 0] & (sa[7:5] == 3'b001),             {32{1'b0}}, 1'b0 });
 		return rrx ? {val[0],ci,val[31:1]} : {dir?cr5:cl5,tmp5};
 	endfunction
 	
