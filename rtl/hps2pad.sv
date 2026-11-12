@@ -15,6 +15,9 @@ module HPS2PAD (
 	input              STICK_EN,
 	input              MOUSE_EN,
 	input              ARCADE_SERVICE,
+	input      [ 1: 0] GUN_NUM,         // light guns at the head of the chain: 0, 1 or 2
+	input      [39: 0] GUN0_DATA,
+	input      [39: 0] GUN1_DATA,
 	
 	input      [12: 0] joystick_0,
 	input      [12: 0] joystick_1,
@@ -172,26 +175,31 @@ module HPS2PAD (
 		mouse_x[9:0]
 	};
 	
-	bit [255: 0] IN_DATA;
+	bit [255: 0] PAD_DATA;
 	always_comb begin
 		if (ARCADE_SEL)
-			IN_DATA = {arcade_tb,arcade_silli,{256-32-32{1'b1}}};
+			PAD_DATA = {arcade_tb,arcade_silli,{256-32-32{1'b1}}};
 		else
 			case ({MOUSE_EN,STICK_EN,PAD_SEL})
-				5'b0_0_001: IN_DATA = {joy0_data,                                                     {256-16      {1'b1}}};
-				5'b0_0_010: IN_DATA = {joy0_data,joy1_data,                                           {256-32      {1'b1}}};
-				5'b0_0_011: IN_DATA = {joy0_data,joy1_data,joy2_data,                                 {256-48      {1'b1}}};
-				5'b0_0_100: IN_DATA = {joy0_data,joy1_data,joy2_data,joy3_data,                       {256-64      {1'b1}}};
-				5'b0_1_000: IN_DATA = {                                        stick0_data,           {256-00-72   {1'b1}}};
-				5'b0_1_001: IN_DATA = {joy0_data,                              stick1_data,           {256-16-72   {1'b1}}};
-				5'b1_0_000: IN_DATA = {                                                    mouse_data,{256-00-   32{1'b1}}};
-				5'b1_0_001: IN_DATA = {joy0_data,                                          mouse_data,{256-16-   32{1'b1}}};
-				5'b1_0_010: IN_DATA = {joy0_data,joy1_data,                                mouse_data,{256-32-   32{1'b1}}};
-				5'b1_1_000: IN_DATA = {                                        stick0_data,mouse_data,{256-00-72-32{1'b1}}};
-				5'b1_1_001: IN_DATA = {joy0_data,                              stick1_data,mouse_data,{256-16-72-32{1'b1}}};
-				default:    IN_DATA = {                                                               {256         {1'b1}}};
+				5'b0_0_001: PAD_DATA = {joy0_data,                                                     {256-16      {1'b1}}};
+				5'b0_0_010: PAD_DATA = {joy0_data,joy1_data,                                           {256-32      {1'b1}}};
+				5'b0_0_011: PAD_DATA = {joy0_data,joy1_data,joy2_data,                                 {256-48      {1'b1}}};
+				5'b0_0_100: PAD_DATA = {joy0_data,joy1_data,joy2_data,joy3_data,                       {256-64      {1'b1}}};
+				5'b0_1_000: PAD_DATA = {                                        stick0_data,           {256-00-72   {1'b1}}};
+				5'b0_1_001: PAD_DATA = {joy0_data,                              stick1_data,           {256-16-72   {1'b1}}};
+				5'b1_0_000: PAD_DATA = {                                                    mouse_data,{256-00-   32{1'b1}}};
+				5'b1_0_001: PAD_DATA = {joy0_data,                                          mouse_data,{256-16-   32{1'b1}}};
+				5'b1_0_010: PAD_DATA = {joy0_data,joy1_data,                                mouse_data,{256-32-   32{1'b1}}};
+				5'b1_1_000: PAD_DATA = {                                        stick0_data,mouse_data,{256-00-72-32{1'b1}}};
+				5'b1_1_001: PAD_DATA = {joy0_data,                              stick1_data,mouse_data,{256-16-72-32{1'b1}}};
+				default:    PAD_DATA = {                                                               {256         {1'b1}}};
 			endcase
 	end
+
+	//the light guns first: on the real console the guns are plugged in before the pad (console - gun 1 - gun 2 - pad)
+	wire [255: 0] IN_DATA = GUN_NUM == 2'd0 ? PAD_DATA :
+	                        GUN_NUM == 2'd1 ? {GUN0_DATA, PAD_DATA[255:40]} :
+	                                          {GUN0_DATA, GUN1_DATA, PAD_DATA[255:80]};
 
 	bit          LATCH;
 	always @(posedge CLK) begin

@@ -181,7 +181,6 @@ module emu
 	assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 	assign BUTTONS   = {1'b0,osd_btn};
 	assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-	assign USER_OUT = '0;
 	
 	assign AUDIO_S = 1;
 	assign AUDIO_MIX = 0;
@@ -291,7 +290,7 @@ module emu
 	// 0         1         2         3          4         5         6   
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X     XXXX  XXXXXXXXXXX          XXXXXXXX                        
+	// X     XXXX  XXXXXXXXXXX          XXXXXXXXXXXXXXXX                
 	
 	`include "build_id.v"
 	localparam CONF_STR = {
@@ -318,6 +317,12 @@ module emu
 		"P2O[38:37],Arcade control,Off,Trackball;",/*,LightGun*/
 		"P2O[39],Arcade service,Off,On;",
 		"P2-;",
+		"D5P2O[41:40],Light gun,Off,1 gun,2 guns;",
+		"D3P2O[46],Gun input,MiSTer,GunCon (SNAC);",
+		"D3P2O[42],Gun 1 aim,Joy 1,Mouse;",
+		"D4P2O[43],Gun 2 aim,Joy 2,Mouse;",
+		"D3P2O[45:44],Gun crosshair,Small,Medium,Big,None;",
+		"D3P2O[47],Gun sensor,Ideal,Picture;",
 
 		"P3,Hardware;",
 		"P3OJ,Video mode,240p,480i(original);",
@@ -337,7 +342,7 @@ module emu
 	};
 
 	wire [63:0] status;
-	wire [15:0] status_menumask = {13'd0,mouse_mask,stick_mask,~bk_ena};
+	wire [15:0] status_menumask = {10'd0,arcade_on,gun_one,gun_off,mouse_mask,stick_mask,~bk_ena};
 	
 	wire  [1:0] buttons;
 	wire [15:0] joystick_0,joystick_1,joystick_2,joystick_3,joystick_4;
@@ -821,8 +826,125 @@ module emu
 	
 	wire [2:0] pad_sel = status[34:32] >= 3'd4 ? 3'd0 : status[34:32] + 3'd1;
 	wire [1:0] arcade_sel = status[38:37];
-	wire stick_mask = ~(pad_sel <= 3'd1 && !arcade_sel);
-	wire mouse_mask = ~(pad_sel <= 3'd2 && !arcade_sel);
+	wire arcade_on = |arcade_sel;
+
+	//Light guns: first in the chain, before the pads; the flightstick and the mouse are off with them
+	wire [1:0] gun_num = arcade_on ? 2'd0 : status[41] ? 2'd2 : {1'b0,status[40]};
+	wire gun_off = gun_num == 2'd0;
+	wire gun_one = gun_num != 2'd2;
+	wire gun_snac = !gun_off && status[46];	//PlayStation GunCons on the SNAC port
+	wire gun1_joy = !gun_off && !gun_snac && !status[42];	//gun 1 aimed with joystick 1
+	wire gun2_joy = !gun_one && !gun_snac && !status[43];	//gun 2 aimed with joystick 2
+	wire gun_sense = status[47] && !gun_snac;	//the emulated guns see only the lit places of the picture
+	wire stick_mask = ~(pad_sel <= 3'd1 && !arcade_sel) | ~gun_off;
+	wire mouse_mask = ~(pad_sel <= 3'd2 && !arcade_sel) | ~gun_off;
+
+	//the pads take the joysticks that do not aim a gun, in order
+	reg [12:0] pad_joy0, pad_joy1, pad_joy2, pad_joy3;
+	always_comb begin
+		case ({gun2_joy,gun1_joy})
+			2'b00:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_0[12:0],joystick_1[12:0],joystick_2[12:0],joystick_3[12:0]};
+			2'b01:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_1[12:0],joystick_2[12:0],joystick_3[12:0],joystick_4[12:0]};
+			2'b10:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_0[12:0],joystick_2[12:0],joystick_3[12:0],joystick_4[12:0]};
+			default: {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_2[12:0],joystick_3[12:0],joystick_4[12:0],13'd0};
+		endcase
+	end
+
+	//GunCons on the SNAC port (PlayStation adapter): they time the beam on a CRT with the composite sync sent on pin 6
+	wire [5:0] gc_user_out;
+	wire [9:0] gc0_x, gc1_x;
+	wire [7:0] gc0_y, gc1_y;
+	wire       gc0_on, gc1_on;
+	wire [2:0] gc0_btn, gc1_btn;
+	P3DO_GUNCON guncon
+	(
+		.CLK(clk_sys),
+		.RST(reset),
+		.ENABLE(gun_snac),
+		.VBL_N(VBL_N),
+		.USER_IN(USER_IN),
+		.USER_OUT(gc_user_out),
+		.PRESENT(),
+		.AIM0_X(gc0_x),
+		.AIM0_Y(gc0_y),
+		.AIM0_ON(gc0_on),
+		.BTN0(gc0_btn),
+		.AIM1_X(gc1_x),
+		.AIM1_Y(gc1_y),
+		.AIM1_ON(gc1_on),
+		.BTN1(gc1_btn)
+	);
+	reg gc_csync;
+	always @(posedge clk_vid) gc_csync <= VGA_HS ^ VGA_VS;
+	assign USER_OUT = gun_snac ? {~gc_csync, gc_user_out} : 7'd0;
+
+	//trigger A, reload (off-screen shot) B, calibration button C; mouse: left, right, middle; GunCon: trigger, B, A
+	wire [39:0] gun0_data, gun1_data;
+	wire [ 9:0] gun0_x, gun1_x;
+	wire [ 7:0] gun0_y, gun1_y;
+	wire        gun0_on, gun1_on;
+	wire        gunv_lit0, gunv_lit1;	//picture sensors (P3DO_GUN_VIDEO)
+	wire [ 9:0] gunv_lit0_x, gunv_lit1_x;
+	wire [ 7:0] gunv_lit0_y, gunv_lit1_y;
+	wire [ 4:0] gunv_lit0_n, gunv_lit1_n;
+	P3DO_LIGHTGUN gun0
+	(
+		.CLK(clk_sys),
+		.RST(reset),
+		.PAL(PAL),
+		.MOUSE_MODE(status[42]),
+		.EXT_MODE(gun_snac),
+		.JOY_X(joy0_x0),
+		.JOY_Y(joy0_y0),
+		.JOY_TRIGGER(joystick_0[4]),
+		.JOY_RELOAD(joystick_0[5]),
+		.JOY_CALIB(joystick_0[6]),
+		.PS2_MOUSE(ps2_mouse),
+		.EXT_X(gc0_x),
+		.EXT_Y(gc0_y),
+		.EXT_ON(gc0_on),
+		.EXT_TRIGGER(gc0_btn[0]),
+		.EXT_RELOAD(gc0_btn[2]),
+		.EXT_CALIB(gc0_btn[1]),
+		.SENSE(gun_sense),
+		.LIT(gunv_lit0),
+		.LIT_X(gunv_lit0_x),
+		.LIT_Y(gunv_lit0_y),
+		.LIT_N(gunv_lit0_n),
+		.DATA(gun0_data),
+		.AIM_X(gun0_x),
+		.AIM_Y(gun0_y),
+		.AIM_ON(gun0_on)
+	);
+	P3DO_LIGHTGUN gun1
+	(
+		.CLK(clk_sys),
+		.RST(reset),
+		.PAL(PAL),
+		.MOUSE_MODE(status[43]),
+		.EXT_MODE(gun_snac),
+		.JOY_X(joy1_x0),
+		.JOY_Y(joy1_y0),
+		.JOY_TRIGGER(joystick_1[4]),
+		.JOY_RELOAD(joystick_1[5]),
+		.JOY_CALIB(joystick_1[6]),
+		.PS2_MOUSE(ps2_mouse),
+		.EXT_X(gc1_x),
+		.EXT_Y(gc1_y),
+		.EXT_ON(gc1_on),
+		.EXT_TRIGGER(gc1_btn[0]),
+		.EXT_RELOAD(gc1_btn[2]),
+		.EXT_CALIB(gc1_btn[1]),
+		.SENSE(gun_sense),
+		.LIT(gunv_lit1),
+		.LIT_X(gunv_lit1_x),
+		.LIT_Y(gunv_lit1_y),
+		.LIT_N(gunv_lit1_n),
+		.DATA(gun1_data),
+		.AIM_X(gun1_x),
+		.AIM_Y(gun1_y),
+		.AIM_ON(gun1_on)
+	);
 	
 	HPS2PAD pad
 	(
@@ -843,11 +965,14 @@ module emu
 		.STICK_EN(status[35]&~stick_mask),
 		.MOUSE_EN(status[36]&~mouse_mask),
 		.ARCADE_SERVICE(status[39]),
+		.GUN_NUM(gun_num),
+		.GUN0_DATA(gun0_data),
+		.GUN1_DATA(gun1_data),
 	
-		.joystick_0(joystick_0[12:0]),
-		.joystick_1(joystick_1[12:0]),
-		.joystick_2(joystick_2[12:0]),
-		.joystick_3(joystick_3[12:0]),
+		.joystick_0(pad_joy0),
+		.joystick_1(pad_joy1),
+		.joystick_2(pad_joy2),
+		.joystick_3(pad_joy3),
 		.joy0_x0(joy0_x0),
 		.joy0_y0(joy0_y0),
 		.joy0_x1(joy0_x1),
@@ -1261,6 +1386,36 @@ module emu
 		.RGB_OUT(meter_rgb)
 	);
 
+	//Light guns: crosshairs over the picture (gun 1 red, gun 2 green), picture sensors
+	wire [23:0] gun_rgb;
+	P3DO_GUN_VIDEO gun_video
+	(
+		.CLK(clk_sys),
+		.NUM(gun_num),
+		.SIZE(status[45:44]),
+		.AIM0_X(gun0_x),
+		.AIM0_Y(gun0_y),
+		.AIM0_ON(gun0_on),
+		.AIM1_X(gun1_x),
+		.AIM1_Y(gun1_y),
+		.AIM1_ON(gun1_on),
+		.LIT0(gunv_lit0),
+		.LIT0_X(gunv_lit0_x),
+		.LIT0_Y(gunv_lit0_y),
+		.LIT0_N(gunv_lit0_n),
+		.LIT1(gunv_lit1),
+		.LIT1_X(gunv_lit1_x),
+		.LIT1_Y(gunv_lit1_y),
+		.LIT1_N(gunv_lit1_n),
+
+		.VCLK(clk_vid),
+		.CE_PIX(DCLK),
+		.HBL_N(HBL_N),
+		.VBL_N(VBL_N),
+		.RGB_IN(meter_rgb),
+		.RGB_OUT(gun_rgb)
+	);
+
 	wire vga_de;
 	video_mixer #(.LINE_LENGTH(8), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
 	(
@@ -1273,9 +1428,9 @@ module emu
 	
 		.VGA_DE(vga_de),
 
-		.R(meter_rgb[23:16]),
-		.G(meter_rgb[15: 8]),
-		.B(meter_rgb[ 7: 0]),
+		.R(gun_rgb[23:16]),
+		.G(gun_rgb[15: 8]),
+		.B(gun_rgb[ 7: 0]),
 	
 		// Positive pulses.
 		.HSync(~HS_N),
