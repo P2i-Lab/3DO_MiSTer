@@ -33,7 +33,8 @@ module VE
 	end 
 	wire VRST = VRST_SYNC[1];
 	
-	wire [ 8: 0] LINE_NUM = !PAL_SYNC[1] ? 9'd263 : 9'd313;
+	bit          LINE_263;	//FZ-10: the fields of 262 and 263 lines alternate (59.94 Hz); follows the field bit of CLIO
+	wire [ 8: 0] LINE_NUM = !PAL_SYNC[1] ? (LINE_263 ? 9'd263 : 9'd262) : 9'd313;
 	wire [ 9: 0] DOT_NUM = !PAL_SYNC[1] ? 10'd780 : 10'd784;//10'd942;
 	wire [ 8: 0] SCREEN_START = !PAL_SYNC[1] ? 9'd22 : 9'd45;
 	
@@ -58,6 +59,7 @@ module VE
 			VCNT <= '0;
 			HSYNC <= 1;
 			VSYNC <= 1;
+			LINE_263 <= 1;
 			DBG_HS_START <= 10'd733;
 			DBG_HS_END <= 10'd11;
 		end
@@ -78,6 +80,7 @@ module VE
 					end
 					if (VCNT == LINE_NUM - 1) begin
 						VCNT <= '0;
+						LINE_263 <= ~LINE_263;
 					end
 					
 					if (VCNT == SCREEN_START + 9'd240 - 1) begin

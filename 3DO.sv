@@ -290,7 +290,7 @@ module emu
 	// 0         1         2         3          4         5         6   
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X     XXXX  XXXXXXXXXXX          XXXXXXXXXXXXXXXXXXXXX           
+	// X     XXXX  XXXXXXXXXXX          XXXXXXXXXXXXXXXXXXXXXX          
 	
 	`include "build_id.v"
 	localparam CONF_STR = {
@@ -333,6 +333,7 @@ module emu
 		"P4OH,H Interpolation,Off,On;",
 		"P4OI,V Interpolation,Off,On;",
 		"P4OM,Pause meter,Off,On;",
+		"P4O[53],Screens/cel/fps,Off,On;",
 		
 		"-;",
 		"R0,Reset;",
@@ -594,6 +595,7 @@ module emu
 			if (id == 32'h07732394) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h6,4'h4};//Space Hulk - Vengeance of the Blood Angels (US)
 			if (id == 32'h0387DF78) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h8,4'hA};//Bodyconscious Digital Rave! Part 1 - Shinjuku & Takasaki (Japan)
 			if (id == 32'h213128DD) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Live! 3DO Magazine CD-ROM 1 (Japan)
+				if (id == 32'h087289AC) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'h5};//Strahl (US): screens 0x24C000/0x271800/0x297000 (fix_strahlbram)
 			
 			if (id == 32'h25609184                       ) NEED_DSP_PAUSE <= 1;//Blade Force (US)
 			if (id == 32'h043DCD69 && msf == 32'h69026900) NEED_DSP_PAUSE <= 1;//Decathlon (US) (Unl)
@@ -693,7 +695,7 @@ module emu
 		.RST_N(1),
 		.IN_CLK(in_clk),
 		.IN_CE(1),
-		.OUT_CLK(16934400),
+		.OUT_CLK(16880794),	//FZ-10: 43960.4 Hz words (ACLK / 384), 0.317 % below 44100 against video and system timer
 		.CE(ACLK_CE)
 	);
 	
@@ -703,6 +705,8 @@ module emu
 		else if (CE_R) POWER_ON <= 0;
 	end
 	
+	wire        dbg_spron, dbg_vcurr_stb;	//debug overlay (debug_info.sv)
+	wire [23:0] dbg_wbase, dbg_vcurr;
 	P3DO p3do
 	(
 		.RST_N(~reset),
@@ -791,7 +795,11 @@ module emu
 		.HINTREPOL_DISABLE(~status[17]),
 		.VINTREPOL_DISABLE(~status[18]),
 		.SCRN_EN(SCRN_EN[2:0]),
-		.DBG_EXT(DBG_EXT)
+		.DBG_EXT(DBG_EXT),
+		.DBG_SPRON(dbg_spron),
+		.DBG_WBASE(dbg_wbase),
+		.DBG_VCURR(dbg_vcurr),
+		.DBG_VCURR_STB(dbg_vcurr_stb)
 	);
 	
 	P3DO_CDROM cdrom
@@ -1370,7 +1378,7 @@ module emu
 	assign VGA_F1 = INTERLACE & FIELD;
 	
 	//Debug: share of each frame where the console waits for the DDR3, drawn over the picture
-	wire [23:0] meter_rgb;
+	wire [23:0] meter_rgb, pmeter_rgb;
 	P3DO_PAUSE_METER pause_meter
 	(
 		.CLK(clk_sys),
@@ -1385,6 +1393,29 @@ module emu
 		.HBL_N(HBL_N),
 		.VBL_N(VBL_N),
 		.RGB_IN({R,G,B}),
+		.RGB_OUT(pmeter_rgb)
+	);
+
+	//Debug: displayed and drawn screens (FPGA memory or DDR3), cel engine load, new pictures per second
+	P3DO_DEBUG_INFO debug_info
+	(
+		.CLK(clk_sys),
+		.PAL(PAL),
+		.SPRON(dbg_spron),
+		.WBASE(dbg_wbase),
+		.VCURR(dbg_vcurr),
+		.VCURR_STB(dbg_vcurr_stb),
+		.BRAM4_OFFS(BRAM4_OFFS),
+		.BRAM2_OFFS(BRAM2_OFFS),
+		.BRAM1_OFFS(BRAM1_OFFS),
+		.BRAM_BLOCKS(`USE_BRAM_BLOCKS_FOR_VRAM != 0),
+		.ENABLE(status[53]),
+
+		.VCLK(clk_vid),
+		.CE_PIX(DCLK),
+		.HBL_N(HBL_N),
+		.VBL_N(VBL_N),
+		.RGB_IN(pmeter_rgb),
 		.RGB_OUT(meter_rgb)
 	);
 

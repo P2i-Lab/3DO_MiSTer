@@ -81,7 +81,11 @@ module MADAM
 	output             FIELD,
 	
 	input              DBG_SPR_EN,
-	input      [ 7: 0] DBG_EXT
+	input      [ 7: 0] DBG_EXT,
+	output             DBG_SPRON,		//debug overlay (debug_info.sv): the cel engine runs
+	output     [23: 0] DBG_WBASE,		//  its frame buffer (REGCTL3)
+	output     [23: 0] DBG_VCURR,		//  current-line address of a display list entry that loads one
+	output             DBG_VCURR_STB
 	
 `ifdef DEBUG
 	                  ,
@@ -158,6 +162,7 @@ module MADAM
 	bit          SPREND_REQ;
 	bit          SE_ACK;
 	bit  [ 3: 0] SE_STAT;
+	assign DBG_SPRON = SE_STAT[0];
 	AddrGenCtl_t SE_AG_CTL;
 	bit          SE_GRANT;
 	bit  [23: 1] SE_ADDR_A,SE_ADDR_B;
@@ -717,7 +722,8 @@ module MADAM
 		.STAT(SE_STAT),
 		
 		.DBG_SPR_EN(DBG_SPR_EN),
-		.DBG_EXT(DBG_EXT)
+		.DBG_EXT(DBG_EXT),
+		.DBG_WBASE(DBG_WBASE)
 	);
 	
 	MADAM_SPORT SPORT
@@ -756,7 +762,9 @@ module MADAM
 		.RSC(SPORT_RSC),
 		.SRDY(SRDY),
 		
-		.FIELD(FIELD)
+		.FIELD(FIELD),
+		.DBG_VCURR(DBG_VCURR),
+		.DBG_VCURR_STB(DBG_VCURR_STB)
 	);
 	
 	MADAM_PLAYER PLAYER

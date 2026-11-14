@@ -260,7 +260,8 @@ package ARM6_PKG;
 				DECI.LST = 1;
 			end
 			
-			12'b00010x10_xxx0: begin 	//MSR PSR,Rm
+			12'b00010x10_xxx0,
+			12'b00110x10_xxxx: begin 	//MSR PSR,Rm and MSR PSR,#imm
 				CYC = CYC_PSR_WRITE;
 				DECI.PCU = 1;
 				DECI.LST = 1;
@@ -510,7 +511,7 @@ package ARM6_PKG;
 			end
 				
 			CYC_PSR_WRITE: begin
-				DECI.DPCTL = {1'b0, 1'b0, IMM_DAT, IC[25] ? SHFT_ROT : IC[4] ? SHFT_REG : SHFT_CONST, MUL_NOP, 1'b0, 1'b1};
+				DECI.DPCTL = {1'b0, IC[25], IMM_U8, IC[25] ? SHFT_ROT : IC[4] ? SHFT_REG : SHFT_CONST, MUL_NOP, 1'b0, 1'b1};
 				DECI.ALU = {ALUT_B, 4'b0000};
 				DECI.RCTL = {4'd0, Rm, Rd, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0};
 				DECI.PSRCTL = PSRC_ALU;
@@ -688,14 +689,21 @@ package ARM6_PKG;
 		return res;
 	endfunction 
 	
-	function bit [31:0] BoothMul(input bit [31:0] a, input bit [1:0] b, input bit [3:0] step);
+	// Returns {shift is zero, shifter carry, value to add}. The ARM60 recodes two multiplier bits per step (Booth) with a
+	// carry c: the step shifts Rm by 2n, or 2n+1 when {c,b} is 0,10 or 1,01. The value added here is the plain unsigned one,
+	// which gives the same result; the shift only matters for the carry out of the shifter, which C receives (FZ-10, disc 3.3).
+	function bit [33:0] BoothMul(input bit [31:0] a, input bit [1:0] b, input bit [3:0] step, input bit c);
+		bit [32:0] s;
 		bit [31:0] t0;
 		bit [31:0] t1;
+		bit        odd;
 		
-		t0 = (a & {32{b[0]}}) << {step,1'b0};
-		t1 = (a & {32{b[1]}}) << {step,1'b1};
+		s = {1'b0,a} << {step,1'b0};
+		t0 = s[31:0] & {32{b[0]}};
+		t1 = {s[30:0],1'b0} & {32{b[1]}};
+		odd = (!c && b == 2'b10) || (c && b == 2'b01);
 	
-		return t0 + t1;
+		return {step == 4'd0 && !odd, odd ? s[31] : s[32], t0 + t1};
 	endfunction 
 	
 	function bit [4:0] BlockOffset(input bit [15:0] list);

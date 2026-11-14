@@ -96,7 +96,11 @@ module P3DO
 	input              HINTREPOL_DISABLE,
 	input              VINTREPOL_DISABLE,
 	input      [ 2: 0] SCRN_EN,
-	input      [ 7: 0] DBG_EXT
+	input      [ 7: 0] DBG_EXT,
+	output             DBG_SPRON,		//debug overlay (debug_info.sv)
+	output     [23: 0] DBG_WBASE,
+	output     [23: 0] DBG_VCURR,
+	output             DBG_VCURR_STB
 	
 `ifdef DEBUG
 	                  ,
@@ -316,7 +320,11 @@ module P3DO
 		.FIELD(FIELD),
 		
 		.DBG_SPR_EN(SCRN_EN[1]),
-		.DBG_EXT(DBG_EXT)
+		.DBG_EXT(DBG_EXT),
+		.DBG_SPRON(DBG_SPRON),
+		.DBG_WBASE(DBG_WBASE),
+		.DBG_VCURR(DBG_VCURR),
+		.DBG_VCURR_STB(DBG_VCURR_STB)
 	);
 	assign MADAM_DI = CPU_DBE ? CPU_DO : DI;
 	

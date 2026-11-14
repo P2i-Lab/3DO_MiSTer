@@ -59,6 +59,7 @@ module ARM6_CORE
 	bit          BLOCK_LAST;
 	bit  [31: 0] MUL_SHIFT;
 	bit  [ 3: 0] MUL_STEP;
+	bit          MUL_C;
 	bit          MUL_LAST;
 		
 	bit  [31: 0] ALU_A;
@@ -211,6 +212,7 @@ module ARM6_CORE
 	bit  [31: 0] SHIFT_RES;
 	bit          SHIFT_C,SHIFT_ZERO;
 	bit  [31: 0] MUL_RES;
+	bit          MUL_CO,MUL_SZ;
 	always_comb begin
 		bit [31: 0] MD;
 		bit [31: 0] IMM;
@@ -218,7 +220,7 @@ module ARM6_CORE
 		bit [ 7: 0] SHIFT_SA;
 		bit [ 2: 0] SHIFT_TYPE;
 		
-		if (!EX_IC[22]) PSR_RES = CPSR;
+		if (!EX_IC[22]) PSR_RES = {CPSR[31:28],20'h00000,CPSR[7:6],1'b0,CPSR[4:0]};	//the reserved bits read as zero (FZ-10)
 		else
 			case (CPSR.M)
 				5'b10001: PSR_RES = SPSR[1];
@@ -261,7 +263,7 @@ module ARM6_CORE
 		
 		{SHIFT_C,SHIFT_RES} = Shifter(SHIFT_A, SHIFT_SA, SHIFT_TYPE, CPSR.C);
 		
-		MUL_RES = BoothMul(RB_RBQ, MUL_SHIFT[1:0], MUL_STEP);
+		{MUL_SZ,MUL_CO,MUL_RES} = BoothMul(RB_RBQ, MUL_SHIFT[1:0], MUL_STEP, MUL_C);
 	end 
 	
 	always @(posedge CLK or negedge RST_N) begin
@@ -275,8 +277,8 @@ module ARM6_CORE
 			if (DECI.DPCTL.ALULTCH) begin
 				ALU_A <= DECI.DPCTL.SA ? PSR_RES : RB_RAQ; 
 				ALU_B <= DECI.DPCTL.MCTL == MUL_EXE ? MUL_RES : SHIFT_RES; 
-				ALU_SHC <= SHIFT_C; 
-				ALU_SHZ <= SHIFT_ZERO; 
+				ALU_SHC <= DECI.DPCTL.MCTL == MUL_EXE ? MUL_CO : SHIFT_C; 
+				ALU_SHZ <= DECI.DPCTL.MCTL == MUL_EXE ? MUL_SZ : SHIFT_ZERO; 
 			end
 		end
 	end 
@@ -306,7 +308,7 @@ module ARM6_CORE
 		case (DECI.ALU.OP)
 			ALUT_ADD: {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {ADD_RES[31],ADD_Z ,ADD_C  ,ADD_V ,ADD_RES};
 			ALUT_LOG: {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {LOG_RES[31],LOG_Z ,LOG_C  ,LOG_V ,LOG_RES};
-			ALUT_MUL: {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {ADD_RES[31],ADD_Z ,CPSR.C ,CPSR.V,ADD_RES};
+			ALUT_MUL: {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {ADD_RES[31],ADD_Z ,LOG_C  ,CPSR.V,ADD_RES};
 			ALUT_A:   {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {CPSR.N     ,CPSR.Z,CPSR.C ,CPSR.V,ALU_A};
 			default:  {ALU_N,ALU_Z,ALU_C,ALU_V,ALU_R} = {CPSR.N     ,CPSR.Z,CPSR.C ,CPSR.V,ALU_B};
 		endcase 
@@ -327,20 +329,23 @@ module ARM6_CORE
 		if (!RST_N) begin
 			MUL_SHIFT <= '0;
 			MUL_STEP <= '0;
+			MUL_C <= 0;
 		end
 		else if (EN && CE_F) begin
 			if (DECI.DPCTL.MCTL == MUL_SET) begin
 				MUL_SHIFT <= ALU_A;
 				MUL_STEP <= '0;
+				MUL_C <= 0;
 			end
 			if (DECI.DPCTL.MCTL == MUL_EXE) begin
 				MUL_SHIFT <= {2'b00,MUL_SHIFT[31:2]};
 				MUL_STEP <= MUL_STEP + 4'd1;
+				MUL_C <= MUL_SHIFT[1];
 			end
 			
 		end
 	end 
-	assign MUL_LAST = ~|MUL_SHIFT[31:2];
+	assign MUL_LAST = (~|MUL_SHIFT[31:2] && !MUL_SHIFT[1]) || MUL_STEP == 4'd15;
 	
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin

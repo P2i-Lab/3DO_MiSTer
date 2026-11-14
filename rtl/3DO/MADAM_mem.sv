@@ -375,7 +375,7 @@ module MADAM_SPRYTE_DATA_FIFO (
 		end
 	end
 	assign FULL = AMOUNT[4];
-	assign LESSHALF = (AMOUNT <= 5'd8);
+	assign LESSHALF = (AMOUNT <= 5'd3);	//FZ-10 (disc 3.3, CELS LARGEURS): the time per row steps at source words 5, 9, 13, not 2, 6, 10
 	assign EMPTY = ~|AMOUNT;
 	
 `ifdef SIM

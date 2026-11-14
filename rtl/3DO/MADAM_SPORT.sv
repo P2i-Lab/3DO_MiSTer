@@ -37,7 +37,9 @@ module MADAM_SPORT
 	input              SRDY,
 	
 	output             FIELD,
-	output             V480
+	output             V480,
+	output reg [23: 0] DBG_VCURR,		//debug overlay: current-line address of a display list entry that loads one
+	output reg         DBG_VCURR_STB
 	
 `ifdef DEBUG
 	                   ,
@@ -603,6 +605,21 @@ module MADAM_SPORT
 			
 			default:;
 		endcase
+	end
+
+	//debug overlay (debug_info.sv): the current-line address of each display list entry that loads one
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			DBG_VCURR <= '0;
+			DBG_VCURR_STB <= 0;
+		end
+		else begin
+			DBG_VCURR_STB <= 0;
+			if (EN && CE_R && BUS_STATE_FF == CLUT_CURR1 && CLUT_DMACTL.LDCURR) begin
+				DBG_VCURR <= MDTI[23:0];
+				DBG_VCURR_STB <= 1;
+			end
+		end
 	end
 
 endmodule

@@ -47,7 +47,8 @@ module MADAM_SE
 	output reg [ 3: 0] STAT,
 	
 	input              DBG_SPR_EN,
-	input      [ 7: 0] DBG_EXT
+	input      [ 7: 0] DBG_EXT,
+	output     [23: 0] DBG_WBASE	//debug overlay: frame buffer of the cel engine (REGCTL3)
 	
 `ifdef DEBUG
 	                   ,
@@ -87,6 +88,7 @@ module MADAM_SE
 	RegCtl1_t    REGCTL1;
 	RegCtl2_t    REGCTL2;
 	RegCtl3_t    REGCTL3;
+	assign DBG_WBASE = REGCTL3[23:0];
 	PPMPCx_t     PPMPCA,PPMPCB;
 	
 	SCoBFlag_t   SCOB_FLAG;
@@ -197,6 +199,10 @@ module MADAM_SE
 	bit          ROW_A_FULL_LOADED,ROW_B_FULL_LOADED;
 	
 	bit          PAUSE;
+	bit          ACE_ON;
+	bit          SPRDATA_ENG_B_DISABLE;
+	bit          SPRDATA_A_FIRST,SPRDATA_B_FIRST;
+	bit          SPRDATA_A_RUN,SPRDATA_B_RUN;
 	bit          ENGINE_B,ENGINE_B_FF;
 	bit          SPR_NEXT;
 	bit          SPRITE_END;
@@ -211,11 +217,8 @@ module MADAM_SE
 		bit          SPRSTRT_WRITE_OLD,SPRCNTU_WRITE_OLD,SPRPAUS_WRITE_OLD;
 		bit  [ 1: 0] SPRDATA_DELAY;
 		bit          SPRDATA_BURST_LAST_FF;
-		bit          SPRDATA_A_FIRST,SPRDATA_B_FIRST;
-		bit          SPRDATA_A_RUN,SPRDATA_B_RUN;
 		bit          SPRDATA_ENG_NEXT;
 		bit          SPRDATA_ENG_SEL;
-		bit          SPRDATA_ENG_B_DISABLE;
 		bit          SPRDRAW_RUN;
 		bit          NEXT_LINE_A_PEND,NEXT_LINE_B_PEND;
 `ifdef DEBUG
@@ -315,7 +318,7 @@ module MADAM_SE
 							LINE_CNT <= 10'd0;
 							SPRDATA_A_FIRST <= 1;
 							SPRDATA_ENG_B_DISABLE <= 1;
-							if (LINE_LAST && !LRFORM && SCOB_FLAG.ACE) begin
+							if (LINE_LAST && !LRFORM && ACE_ON) begin
 								LINE_CNT <= 10'd1;
 								SPRDATA_B_FIRST <= 1;
 								SPRDATA_ENG_B_DISABLE <= FB_IN_DRAM;
@@ -333,7 +336,7 @@ module MADAM_SE
 					LINE_CNT <= 10'd0;
 					SPRDATA_A_FIRST <= 1;
 					SPRDATA_ENG_B_DISABLE <= 1;
-					if (LINE_LAST && !LRFORM && SCOB_FLAG.ACE) begin
+					if (LINE_LAST && !LRFORM && ACE_ON) begin
 						LINE_CNT <= 10'd1;
 						SPRDATA_B_FIRST <= 1;
 						SPRDATA_ENG_B_DISABLE <= FB_IN_DRAM;
@@ -411,7 +414,7 @@ module MADAM_SE
 					else if (SPR_FIFO_A_HALF && (SPR_FIFO_B_HALF || !LRFORM) && !ROW_A_FULL_LOADED && !SPRDATA_A_RUN) begin
 						MAIN_ST <= MS_SPRDATA_A_REQ;
 					end
-					else if (SPR_FIFO_B_HALF && !ROW_B_FULL_LOADED && !SPRDATA_B_RUN && !SPRDATA_ENG_B_DISABLE) begin
+					else if ((SPR_FIFO_B_HALF || SPRDATA_B_FIRST) && !ROW_B_FULL_LOADED && !SPRDATA_B_RUN && !SPRDATA_ENG_B_DISABLE) begin
 						MAIN_ST <= MS_SPRDATA_B_REQ;
 					end
 					else if (NEXT_LINE_A_PEND && (NEXT_LINE_B_PEND || !LINE_LAST || SPRDATA_ENG_B_DISABLE) && LINE_CNT == LINE_LAST) begin
@@ -755,6 +758,10 @@ module MADAM_SE
 	bit          UNPACKER_A_LOAD_NEXT,UNPACKER_B_LOAD_NEXT;
 	bit          UNPACKER_A_EOL,UNPACKER_B_EOL;
 	bit          UNPACKER_A_READY,UNPACKER_B_READY;
+	bit          UNPACKER_A_READY_IN,UNPACKER_B_READY_IN;
+	bit          UNPACKER_A_NOSRC,UNPACKER_B_NOSRC,UNPACKER_A_NEXT_T,UNPACKER_B_NEXT_T;
+	bit          UNPACKER_A_PKT,UNPACKER_B_PKT,UNPACKER_A_PKT_TR,UNPACKER_B_PKT_TR;
+	bit  [23: 0] PACE_A,PACE_B;	//fix_pacew: 24 bits, a large blended quad owes more than 32767 quarter clocks
 	always @(posedge CLK or negedge RST_N) begin
 		
 		if (!RST_N) begin
@@ -876,8 +883,30 @@ module MADAM_SE
 			CORNER_SEL <= ~CORNER_SEL;
 		end
 	end 
-	assign UNPACKER_A_TAK_EN = (CRNA_ST == CRN_CALC && UNPACKER_A_READY && (CRNB_ST == CRN_CALC || !LRFORM));
-	assign UNPACKER_B_TAK_EN = (CRNB_ST == CRN_CALC && UNPACKER_B_READY && (CRNA_ST == CRN_CALC || !LRFORM)); 
+	//FZ-10 (disc 3.3): with ACE one pixel of each row goes in the same CFB write cycle: an engine waits for the other one, unless it is between two rows
+	//the rows of a pair start together: an engine waits at the first pixel of its row while the other one is about to start its row
+	wire         ACE_PAIRS = ACE_ON && !LRFORM && !SPRDATA_ENG_B_DISABLE;
+	//without LCE the lock only holds while both engines draw: a transparent pixel (the last one drawn, or the next one of a packed transparent run) frees it
+	wire         IPN_A_T,IPN_B_T;	//IPN_A/IPN_B.T, declared before use for Quartus (IPN_A/IPN_B are declared further down)
+	wire         ACE_LOCK = ACE_PAIRS && (SCOB_FLAG.LCE || (!IPN_A_T && !UNPACKER_A_NEXT_T && !IPN_B_T && !UNPACKER_B_NEXT_T));
+	wire         CRNA_COMING = CRNA_ST == CRN_IDLE && (SPRDATA_A_FIRST || SPRDATA_A_RUN || ROW_A_START);
+	wire         CRNB_COMING = CRNB_ST == CRN_IDLE && (SPRDATA_B_FIRST || SPRDATA_B_RUN || ROW_B_START);
+	bit          CRNA_FIRST,CRNB_FIRST;
+	wire         CRNA_PAIR_WAIT = ACE_PAIRS && ((CRNA_FIRST && CRNB_COMING) || (ACE_LOCK && CRNB_ST != CRN_IDLE && CRNB_ST != CRN_END && !(CRNB_ST == CRN_CALC && (UNPACKER_B_READY || UNPACKER_B_EOL))));
+	wire         CRNB_PAIR_WAIT = ACE_PAIRS && ((CRNB_FIRST && CRNA_COMING) || (ACE_LOCK && CRNA_ST != CRN_IDLE && CRNA_ST != CRN_END && !(CRNA_ST == CRN_CALC && (UNPACKER_A_READY || UNPACKER_A_EOL))));
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			{CRNA_FIRST,CRNB_FIRST} <= '0;
+		end
+		else if (EN && CE_R) begin
+			if (CRNA_ST == CRN_ROW_INIT0) CRNA_FIRST <= 1; else if (UNPACKER_A_TAK_EN || CRNA_ST == CRN_END || CRNA_ST == CRN_IDLE) CRNA_FIRST <= 0;
+			if (CRNB_ST == CRN_ROW_INIT0) CRNB_FIRST <= 1; else if (UNPACKER_B_TAK_EN || CRNB_ST == CRN_END || CRNB_ST == CRN_IDLE) CRNB_FIRST <= 0;
+		end
+	end
+	wire         CRNA_TAKE = UNPACKER_A_READY && (CRNB_ST == CRN_CALC || !LRFORM) && !CRNA_PAIR_WAIT;
+	wire         CRNB_TAKE = UNPACKER_B_READY && (CRNA_ST == CRN_CALC || !LRFORM) && !CRNB_PAIR_WAIT;
+	assign UNPACKER_A_TAK_EN = (CRNA_ST == CRN_CALC && CRNA_TAKE);
+	assign UNPACKER_B_TAK_EN = (CRNB_ST == CRN_CALC && CRNB_TAKE); 
 	
 	//Color mapping path
 	wire [15: 0] SPR_FIFO_A_DIN = LRFORM ? MDTI[31:16] : !PDATA_LOAD_A0 ? MDTI[31:16] : LOAD_BUF;
@@ -949,7 +978,11 @@ module MADAM_SE
 		.OUT(UNPACKER_A_OUT),
 		.NEXT(UNPACKER_A_LOAD_NEXT),
 		.EOL(UNPACKER_A_EOL),
-		.READY(UNPACKER_A_READY)
+		.READY(UNPACKER_A_READY_IN),
+		.NOSRC(UNPACKER_A_NOSRC),
+		.NEXT_T(UNPACKER_A_NEXT_T),
+		.PKT(UNPACKER_A_PKT),
+		.PKT_TR(UNPACKER_A_PKT_TR)
 	);
 	
 	MADAM_UNPACKER UNPACKER_B
@@ -974,7 +1007,11 @@ module MADAM_SE
 		.OUT(UNPACKER_B_OUT),
 		.NEXT(UNPACKER_B_LOAD_NEXT),
 		.EOL(UNPACKER_B_EOL),
-		.READY(UNPACKER_B_READY)
+		.READY(UNPACKER_B_READY_IN),
+		.NOSRC(UNPACKER_B_NOSRC),
+		.NEXT_T(UNPACKER_B_NEXT_T),
+		.PKT(UNPACKER_B_PKT),
+		.PKT_TR(UNPACKER_B_PKT_TR)
 	);
 	
 	wire [15: 0] PIN_A = UNPACKER_A_OUT;
@@ -987,6 +1024,8 @@ module MADAM_SE
 	wire IPS_B_EN = (CRNB_ST == CRN_OUT);
 	
 	IPN_t        IPN_A,IPN_B;
+	assign IPN_A_T = IPN_A.T;
+	assign IPN_B_T = IPN_B.T;
 	always_comb begin
 		case (SCOB_PRE0.BPP)
 			3'h0,
@@ -1007,7 +1046,7 @@ module MADAM_SE
 	always @(posedge CLK or negedge RST_N) begin
 		PPMPCx_t     PPMPC;
 		bit          PPMPC_SEL;
-		bit          D,T,RMODE,SPH,SPV;
+		bit          D,T,RMODE,SPH,SPV,B0;
 		bit  [ 4: 0] R,G,B;
 		bit  [ 2: 0] MR,MG,MB;
 		
@@ -1035,6 +1074,14 @@ module MADAM_SE
 				4'b111x: {R,G,B} = {PIN_A[14:10],PIN_A[9:5],PIN_A[4:0]};
 				default: {R,G,B} = {PIP_DOUT[14:10],PIP_DOUT[ 9: 5],PIP_DOUT[ 4: 0]};
 			endcase
+			B0 = B[0];
+			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1 and 3.2, PIXELS EN CLAIR: before the transparency test)
+			case (SCOB_FLAG.PACKED ? 2'd1 : SCOB_PRE1.TLLSBIPN)	//FZ-10: a packed cel does not use PRE1 (disc 3.0 FORMATS)
+				2'd0: B[0] = 1'b0;
+				2'd1: ;
+				2'd2: B[0] = B[4];
+				2'd3: B[0] = G[0];
+			endcase
 			T = (~|{R,G,B} & ~SCOB_FLAG.BGND) | TRANSPARENT;
 			casex ({SCOB_PRE0.LINEAR,SCOB_PRE0.BPP})
 				4'b0101: {MR,MG,MB} = {PIN_A[ 7: 5],PIN_A[ 7: 5],PIN_A[ 7: 5]};
@@ -1042,16 +1089,9 @@ module MADAM_SE
 				default: {MR,MG,MB} = {    3'b000,    3'b000,    3'b000};
 			endcase
 			RMODE = PPMPC.S1 == 1'd1 || PPMPC.S2 == 2'd2;
-			SPH = SCOB_FLAG.PIPPOS ? B[0] : SUB_H;
+			SPH = SCOB_FLAG.PIPPOS ? B0 : SUB_H;
 			SPV = SCOB_FLAG.PIPPOS ? D : SUB_V;
 		
-			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1, PIXELS EN CLAIR 4/4)
-			case (SCOB_PRE1.TLLSBIPN)
-				2'd0: B[0] = 1'b0;
-				2'd1: ;
-				2'd2: B[0] = B[4];
-				2'd3: B[0] = G[0];
-			endcase
 			IPN_A <= {D,R,G,B,T,MR,MG,MB,RMODE,SPH,SPV};
 		end
 	end
@@ -1059,7 +1099,7 @@ module MADAM_SE
 	always @(posedge CLK or negedge RST_N) begin
 		PPMPCx_t     PPMPC;
 		bit          PPMPC_SEL;
-		bit          D,T,RMODE,SPH,SPV;
+		bit          D,T,RMODE,SPH,SPV,B0;
 		bit  [ 4: 0] R,G,B;
 		bit  [ 2: 0] MR,MG,MB;
 		
@@ -1087,6 +1127,14 @@ module MADAM_SE
 				4'b111x: {R,G,B} = {PIN_B[14:10],PIN_B[9:5],PIN_B[4:0]};
 				default: {R,G,B} = {PIP_B_DOUT[14:10],PIP_B_DOUT[ 9: 5],PIP_B_DOUT[ 4: 0]};
 			endcase
+			B0 = B[0];
+			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1 and 3.2, PIXELS EN CLAIR: before the transparency test)
+			case (SCOB_FLAG.PACKED ? 2'd1 : SCOB_PRE1.TLLSBIPN)	//FZ-10: a packed cel does not use PRE1 (disc 3.0 FORMATS)
+				2'd0: B[0] = 1'b0;
+				2'd1: ;
+				2'd2: B[0] = B[4];
+				2'd3: B[0] = G[0];
+			endcase
 			T = (~|{R,G,B} & ~SCOB_FLAG.BGND) | TRANSPARENT_B;
 			casex ({SCOB_PRE0.LINEAR,SCOB_PRE0.BPP})
 				4'b0101: {MR,MG,MB} = {PIN_B[ 7: 5],PIN_B[ 7: 5],PIN_B[ 7: 5]};
@@ -1094,16 +1142,9 @@ module MADAM_SE
 				default: {MR,MG,MB} = {    3'b000,    3'b000,    3'b000};
 			endcase
 			RMODE = PPMPC.S1 == 1'd1 || PPMPC.S2 == 2'd2;
-			SPH = SCOB_FLAG.PIPPOS ? B[0] : SUB_H;
+			SPH = SCOB_FLAG.PIPPOS ? B0 : SUB_H;
 			SPV = SCOB_FLAG.PIPPOS ? D : SUB_V;
 		
-			//PRE1 TLLSB: what the low bit of blue is made of (bench 3.1, PIXELS EN CLAIR 4/4)
-			case (SCOB_PRE1.TLLSBIPN)
-				2'd0: B[0] = 1'b0;
-				2'd1: ;
-				2'd2: B[0] = B[4];
-				2'd3: B[0] = G[0];
-			endcase
 			IPN_B <= {D,R,G,B,T,MR,MG,MB,RMODE,SPH,SPV};
 		end
 	end
@@ -1230,6 +1271,11 @@ module MADAM_SE
 	MathCtl_t    MATH_A_CTL,MATH_B_CTL;
 	
 	bit          REGIS_A_OUT,REGIS_B_OUT;
+	//FZ-10 (disc 3.5 CELS CHEMIN GENERAL): a quad within two rows and two columns (one pixel at most) goes back to CALC after its OUT
+	wire         MATH_A_ONEL,MATH_B_ONEL;
+	wire         MATH_A_RCV,MATH_B_RCV;
+	bit          RG_A_ONE,RG_B_ONE;
+	bit          CRNA_SKIP,CRNB_SKIP;
 	bit  [11: 0] Y_A,Y_B,REGIS_A_Y,REGIS_B_Y;
 	bit          CLIPX_A,CLIPY_A,CLIPX_B,CLIPY_B;
 	
@@ -1240,7 +1286,7 @@ module MADAM_SE
 		CLIPX_A = ($signed(MATH_A_XL) > $signed({1'b0,REGCTL1.CLIPX}) && $signed(MATH_A_XR) > $signed({1'b0,REGCTL1.CLIPX})) || ($signed(MATH_A_XL) < 0 && $signed(MATH_A_XR) < 0);
 		CLIPY_A = $signed(Y_A) > $signed({1'b0,REGCTL1.CLIPY}) || $signed(Y_A) < 0;
 		REGIS_A_START = (CRNA_ST == CRN_CALC && !UNPACKER_A_EOL && !MATH_A_STAT.NP && !(MATH_A_STAT.MF || SCOB_FLAG.MARIA) && !MATH_A_STAT.RC);
-		REGIS_A_TERMINATE = ($signed(MATH_A_Y) > $signed(REGCTL1.CLIPY)) && SCOBCTL.ASCALL;
+		REGIS_A_TERMINATE = (($signed(MATH_A_Y) > $signed(REGCTL1.CLIPY)) && SCOBCTL.ASCALL) || CRNA_SKIP;
 	end
 	bit          REGIS_A_LF_REQ;
 	bit          REGIS_A_DONE;
@@ -1270,7 +1316,7 @@ module MADAM_SE
 		CLIPX_B = ($signed(MATH_B_XL) > $signed({1'b0,REGCTL1.CLIPX}) && $signed(MATH_B_XR) > $signed({1'b0,REGCTL1.CLIPX})) || ($signed(MATH_B_XL) < 0 && $signed(MATH_B_XR) < 0);
 		CLIPY_B = $signed(Y_B) > $signed({1'b0,REGCTL1.CLIPY}) || $signed(Y_B) < 0;
 		REGIS_B_START = (CRNB_ST == CRN_CALC && !UNPACKER_B_EOL && !MATH_B_STAT.NP && !(MATH_B_STAT.MF || SCOB_FLAG.MARIA) && !MATH_B_STAT.RC);
-		REGIS_B_TERMINATE = ($signed(MATH_B_Y) > $signed(REGCTL1.CLIPY)) && SCOBCTL.ASCALL;
+		REGIS_B_TERMINATE = (($signed(MATH_B_Y) > $signed(REGCTL1.CLIPY)) && SCOBCTL.ASCALL) || CRNB_SKIP;
 	end
 	bit          REGIS_B_LF_REQ;
 	bit          REGIS_B_DONE;
@@ -1362,13 +1408,14 @@ module MADAM_SE
 				CRN_CALC: if (CE_R) begin
 					if (UNPACKER_A_EOL)
 						CRNA_ST <= CRN_END;
-					else if (UNPACKER_A_READY && (CRNB_ST == CRN_CALC || !LRFORM)) begin
+					else if (CRNA_TAKE) begin
 						if (MATH_A_STAT.MF || SCOB_FLAG.MARIA) begin
 							REGIS_A_Y <= MATH_A_Y;
-							CRNA_ST <= !MATH_A_STAT.RC ? CRN_OUT : CRN_CALC;
+							CRNA_ST <= !MATH_A_STAT.RC && !UNPACKER_A_NEXT_T ? CRN_OUT : CRN_CALC;	//FZ-10: 47 ns per pixel of a packed transparent run
 						end else if (!REGIS_A_START) begin
 							CRNA_ST <= CRN_CALC;
 						end else begin
+							RG_A_ONE <= MATH_A_ONEL;
 							CRNA_ST <= CRN_REGIS;
 						end
 					end
@@ -1393,7 +1440,7 @@ module MADAM_SE
 					DBG_CLIP_A <= 0;
 `endif
 					if (CLIPX_A || CLIPY_A) begin
-						CRNA_ST <= !REGIS_A_OUT ? CRN_CALC : UNPACKER_A_EOL && REGIS_A_DONE ? CRN_END : REGIS_A_DONE ? CRN_REGIS_DONE : CRN_REGIS;
+						CRNA_ST <= !REGIS_A_OUT || RG_A_ONE || TSK_A ? CRN_CALC : UNPACKER_A_EOL && REGIS_A_DONE ? CRN_END : REGIS_A_DONE ? CRN_REGIS_DONE : CRN_REGIS;
 `ifdef DEBUG
 						DBG_CLIP_A <= 1;
 `endif
@@ -1401,13 +1448,13 @@ module MADAM_SE
 						if ($signed(MATH_A_XR) < $signed(MATH_A_XL) && $signed(MATH_A_XL) > 0) begin
 							X1_A_CLIPPED = !MATH_A_XR[11] ? MATH_A_XR : '0;
 							X2_A_CLIPPED = $signed(MATH_A_XL) <= {1'b0,REGCTL1.CLIPX} ? $signed(MATH_A_XL) - 12'd1 : {1'b0,REGCTL1.CLIPX};
-							if ($signed(X2_A_CLIPPED) != $signed(X1_A_CLIPPED)) begin LF_A_RUN <= SCOB_FLAG.ACCW & ~SCOB_FLAG.MARIA; end
+							if ($signed(X2_A_CLIPPED) != $signed(X1_A_CLIPPED)) begin LF_A_RUN <= SCOB_FLAG.ACCW & ~SCOB_FLAG.MARIA & ~(REGIS_A_OUT & TSK_A); end
 							else begin LF_A_LAST <= UNPACKER_A_EOL && REGIS_A_DONE; end
 							LF_A_REQ <= SCOB_FLAG.ACCW;
 						end else if ($signed(MATH_A_XR) > $signed(MATH_A_XL) && $signed(MATH_A_XR) > 0) begin
 							X1_A_CLIPPED = !MATH_A_XL[11] ? MATH_A_XL : '0;
 							X2_A_CLIPPED = $signed(MATH_A_XR) <= {1'b0,REGCTL1.CLIPX} ? $signed(MATH_A_XR) - 12'd1 : {1'b0,REGCTL1.CLIPX};
-							if ($signed(X1_A_CLIPPED) != $signed(X2_A_CLIPPED)) begin LF_A_RUN <= SCOB_FLAG.ACW & ~SCOB_FLAG.MARIA; end
+							if ($signed(X1_A_CLIPPED) != $signed(X2_A_CLIPPED)) begin LF_A_RUN <= SCOB_FLAG.ACW & ~SCOB_FLAG.MARIA & ~(REGIS_A_OUT & TSK_A); end
 							else begin LF_A_LAST <= UNPACKER_A_EOL && REGIS_A_DONE; end
 							LF_A_REQ <= SCOB_FLAG.ACW;
 						end else begin 
@@ -1422,7 +1469,7 @@ module MADAM_SE
 `endif
 					end 
 					REGIS_A_OUT <= 0;
-					CRNA_ST <= !REGIS_A_OUT ? CRN_CALC : UNPACKER_A_EOL && REGIS_A_DONE ? CRN_END : REGIS_A_DONE ? CRN_REGIS_DONE : CRN_REGIS; 
+					CRNA_ST <= !REGIS_A_OUT || RG_A_ONE || TSK_A ? CRN_CALC : UNPACKER_A_EOL && REGIS_A_DONE ? CRN_END : REGIS_A_DONE ? CRN_REGIS_DONE : CRN_REGIS; 
 				end
 				
 				CRN_REGIS_DONE: if (CE_R) begin
@@ -1501,13 +1548,14 @@ module MADAM_SE
 				CRN_CALC: if (CE_R) begin
 					if (UNPACKER_B_EOL)
 						CRNB_ST <= CRN_END;
-					else if (UNPACKER_B_READY && (CRNA_ST == CRN_CALC || !LRFORM)) begin
+					else if (CRNB_TAKE) begin
 						if (MATH_B_STAT.MF || SCOB_FLAG.MARIA) begin
 							REGIS_B_Y <= MATH_B_Y;
-							CRNB_ST <= !MATH_B_STAT.RC ? CRN_OUT : CRN_CALC;
+							CRNB_ST <= !MATH_B_STAT.RC && !UNPACKER_B_NEXT_T ? CRN_OUT : CRN_CALC;
 						end else if (!REGIS_B_START) begin
 							CRNB_ST <= CRN_CALC;
 						end else begin
+							RG_B_ONE <= MATH_B_ONEL;
 							CRNB_ST <= CRN_REGIS;
 						end
 					end
@@ -1529,7 +1577,7 @@ module MADAM_SE
 					DBG_CLIP_B <= 0;
 `endif
 					if (CLIPX_B || CLIPY_B) begin
-						CRNB_ST <= !REGIS_B_OUT ? CRN_CALC : UNPACKER_B_EOL && REGIS_B_DONE ? CRN_END : REGIS_B_DONE ? CRN_REGIS_DONE : CRN_REGIS;
+						CRNB_ST <= !REGIS_B_OUT || RG_B_ONE || TSK_B ? CRN_CALC : UNPACKER_B_EOL && REGIS_B_DONE ? CRN_END : REGIS_B_DONE ? CRN_REGIS_DONE : CRN_REGIS;
 `ifdef DEBUG
 						DBG_CLIP_B <= 1;
 `endif
@@ -1537,13 +1585,13 @@ module MADAM_SE
 						if ($signed(MATH_B_XR) < $signed(MATH_B_XL) && $signed(MATH_B_XL) > 0) begin
 							X1_B_CLIPPED = !MATH_B_XR[11] ? MATH_B_XR : '0;
 							X2_B_CLIPPED = $signed(MATH_B_XL) <= {1'b0,REGCTL1.CLIPX} ? $signed(MATH_B_XL) - 12'd1 : {1'b0,REGCTL1.CLIPX};
-							if ($signed(X2_B_CLIPPED) != $signed(X1_B_CLIPPED)) begin LF_B_RUN <= SCOB_FLAG.ACCW & ~SCOB_FLAG.MARIA; end
+							if ($signed(X2_B_CLIPPED) != $signed(X1_B_CLIPPED)) begin LF_B_RUN <= SCOB_FLAG.ACCW & ~SCOB_FLAG.MARIA & ~(REGIS_B_OUT & TSK_B); end
 							else begin LF_B_LAST <= UNPACKER_B_EOL && REGIS_B_DONE; end
 							LF_B_REQ <= SCOB_FLAG.ACCW;
 						end else if ($signed(MATH_B_XR) > $signed(MATH_B_XL) && $signed(MATH_B_XR) > 0) begin
 							X1_B_CLIPPED = !MATH_B_XL[11] ? MATH_B_XL : '0;
 							X2_B_CLIPPED = $signed(MATH_B_XR) <= {1'b0,REGCTL1.CLIPX} ? $signed(MATH_B_XR) - 12'd1 : {1'b0,REGCTL1.CLIPX};
-							if ($signed(X1_B_CLIPPED) != $signed(X2_B_CLIPPED)) begin LF_B_RUN <= SCOB_FLAG.ACW & ~SCOB_FLAG.MARIA; end
+							if ($signed(X1_B_CLIPPED) != $signed(X2_B_CLIPPED)) begin LF_B_RUN <= SCOB_FLAG.ACW & ~SCOB_FLAG.MARIA & ~(REGIS_B_OUT & TSK_B); end
 							else begin LF_B_LAST <= UNPACKER_B_EOL && REGIS_B_DONE; end
 							LF_B_REQ <= SCOB_FLAG.ACW;
 						end else begin 
@@ -1555,7 +1603,7 @@ module MADAM_SE
 						LF_B_XY.Y <= Y_B[10:0];
 					end
 					REGIS_B_OUT <= 0;
-					CRNB_ST <= !REGIS_B_OUT ? CRN_CALC : UNPACKER_B_EOL && REGIS_B_DONE ? CRN_END : REGIS_B_DONE ? CRN_REGIS_DONE : CRN_REGIS; 
+					CRNB_ST <= !REGIS_B_OUT || RG_B_ONE || TSK_B ? CRN_CALC : UNPACKER_B_EOL && REGIS_B_DONE ? CRN_END : REGIS_B_DONE ? CRN_REGIS_DONE : CRN_REGIS; 
 				end
 				
 				CRN_REGIS_DONE: if (CE_R) begin
@@ -1589,12 +1637,12 @@ module MADAM_SE
 		end
 	end 
 	assign CRNA_READY = !XY_FIFO_A_LESSHALF || (CRNA_DONE && !XY_FIFO_A_EMPTY);
-	assign CRNB_READY = !XY_FIFO_A_LESSHALF || (CRNB_DONE && !XY_FIFO_A_EMPTY);
-	assign CRNA_FINISH = (CRNA_ST == CRN_IDLE && XY_FIFO_A_EMPTY && (CRNB_ST == CRN_IDLE || !LRFORM));
-	assign CRNB_FINISH = (CRNB_ST == CRN_IDLE && XY_FIFO_A_EMPTY && (CRNA_ST == CRN_IDLE || !LRFORM));
+	assign CRNB_READY = !XY_FIFO_A_LESSHALF || (CRNB_DONE && !SPRDATA_ENG_B_DISABLE && !XY_FIFO_A_EMPTY);
+	assign CRNA_FINISH = (CRNA_ST == CRN_IDLE && XY_FIFO_A_EMPTY && (CRNB_ST == CRN_IDLE || !LRFORM) && !(|PACE_A[23:2]));
+	assign CRNB_FINISH = (CRNB_ST == CRN_IDLE && XY_FIFO_A_EMPTY && (CRNA_ST == CRN_IDLE || !LRFORM) && !(|PACE_B[23:2]));
 	
-	wire         MUNKEE_A_LF_REQ = (CRNA_ST == CRN_CALC && (MATH_A_STAT.MF || SCOB_FLAG.MARIA) && UNPACKER_A_READY && (CRNB_ST == CRN_CALC || !LRFORM));
-	wire         MUNKEE_B_LF_REQ = (CRNB_ST == CRN_CALC && (MATH_B_STAT.MF || SCOB_FLAG.MARIA) && UNPACKER_B_READY && (CRNA_ST == CRN_CALC || !LRFORM));
+	wire         MUNKEE_A_LF_REQ = (CRNA_ST == CRN_CALC && (MATH_A_STAT.MF || SCOB_FLAG.MARIA) && CRNA_TAKE);
+	wire         MUNKEE_B_LF_REQ = (CRNB_ST == CRN_CALC && (MATH_B_STAT.MF || SCOB_FLAG.MARIA) && CRNB_TAKE);
 	MathCtl_t    REGIS_A_CTL,REGIS_B_CTL;
 	always_comb begin
 		MATH_A_CTL = '0;
@@ -1642,7 +1690,7 @@ module MADAM_SE
 				MATH_A_CTL.Y_T1_SEL = 2'b00;
 				MATH_A_CTL.Y_UPD = 1;
 			end
-			CRN_CALC: if (UNPACKER_A_READY && (CRNB_ST == CRN_CALC || !LRFORM) && CE_R) begin
+			CRN_CALC: if (CRNA_TAKE && CE_R) begin
 				MATH_A_CTL.X1_MUNK_SEL = 2'd0;
 				MATH_A_CTL.X1_MUNK = MUNKEE_A_LF_REQ;////////////////
 				MATH_A_CTL.X_ADD01_ASEL = 3'd0;
@@ -1664,6 +1712,9 @@ module MADAM_SE
 				end else begin
 					MATH_A_CTL = REGIS_A_CTL;
 				end
+			end
+			CRN_OUT: if (CRNA_SKIP) begin
+				MATH_A_CTL.A12C_CALC = 1;
 			end
 			CRN_REGIS_DONE: if (CE_R) begin
 				MATH_A_CTL.A12C_CALC = 1;
@@ -1716,7 +1767,7 @@ module MADAM_SE
 				MATH_B_CTL.Y_T1_SEL = 2'b00;
 				MATH_B_CTL.Y_UPD = 1;
 			end
-			CRN_CALC: if (UNPACKER_B_READY && (CRNA_ST == CRN_CALC || !LRFORM) && CE_R) begin
+			CRN_CALC: if (CRNB_TAKE && CE_R) begin
 				MATH_B_CTL.X1_MUNK_SEL = 2'd0;
 				MATH_B_CTL.X1_MUNK = MUNKEE_B_LF_REQ;////////////////
 				MATH_B_CTL.X_ADD01_ASEL = 3'd0;
@@ -1738,6 +1789,9 @@ module MADAM_SE
 				end else begin
 					MATH_B_CTL = REGIS_B_CTL;
 				end
+			end
+			CRN_OUT: if (CRNB_SKIP) begin
+				MATH_B_CTL.A12C_CALC = 1;
 			end
 			CRN_REGIS_DONE: if (CE_R) begin
 				MATH_B_CTL.A12C_CALC = 1;
@@ -1994,6 +2048,169 @@ module MADAM_SE
 	end 
 `endif
 	
+	//Timing rules measured on the FZ-10 (bench 3.3). What the engine owes on top of its own time is counted per corner
+	//engine, in quarters of a clock, and paid at the end of the row, when the pipeline is empty, so that it adds up.
+	bit  [15: 0] GEO_LDY_H,GEO_LDY_L,GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L,GEO_DX_H,GEO_DX_L;
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			{GEO_LDY_H,GEO_LDY_L,GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L,GEO_DX_H,GEO_DX_L} <= '0;
+		end
+		else if (EN && CE_R) begin
+			case (SCU_WA)
+				3'h1: begin
+					if (SCU_WE[1]) GEO_DX_L <= REG_STACK_XIN;
+					if (SCU_WE[0]) GEO_DY_L <= REG_STACK_YIN;
+				end
+				3'h3: begin
+					if (SCU_WE[1]) GEO_DX_H <= REG_STACK_XIN;
+					if (SCU_WE[0]) GEO_DY_H <= REG_STACK_YIN;
+				end
+				3'h4: begin
+					if (SCU_WE[1]) GEO_LDX_L <= REG_STACK_XIN;
+					if (SCU_WE[0]) GEO_LDY_L <= REG_STACK_YIN;
+				end
+				3'h6: begin
+					if (SCU_WE[1]) GEO_LDX_H <= REG_STACK_XIN;
+					if (SCU_WE[0]) GEO_LDY_H <= REG_STACK_YIN;
+				end
+				default:;
+			endcase
+		end
+	end
+	wire [31: 0] GEO_VABS = GEO_LDY_H[15] ? -{GEO_LDY_H,GEO_LDY_L} : {GEO_LDY_H,GEO_LDY_L};
+	wire [31: 0] GEO_HABS = GEO_DY_H[15] ? -{GEO_DY_H,GEO_DY_L} : {GEO_DY_H,GEO_DY_L};
+	wire [32: 0] GEO_EXT = {1'b0,GEO_VABS} + {5'b00000,GEO_HABS[31:4]};	//height of one source pixel on the screen, 16.16
+	bit  [ 4: 0] GEO_LINES;
+	bit          GEO_AXIS,GEO_Y12;
+	bit          GEO_T90;	//fix_rot90: turned by 90 or 270 degrees (HDX = VDY = 0)
+	//ACE, vertical scale between 1 and 2: 12 + K * (scale - 1) per source pixel of one engine (fix_y12p)
+	wire [15: 0] Y12_K = 16'd12;
+	wire [31: 0] Y12_PROD = {16'd0,GEO_VABS[15:0]} * {16'd0,Y12_K};
+	bit  [ 7: 0] Y12_ADD;
+	//ACE: frame buffer shared by the two engines (FZ-10 disc 3.3 CELS ECHELLE XY, disc 3.5 CHEMIN GENERAL): what one engine owes
+	//per source pixel once it covers two lines or more (24, less when the source pixel is narrower than a column), or for a
+	//horizontal scale above 1 with at most one line (4 per unit of scale above 1)
+	wire [31: 0] GEO_XABS = GEO_DX_H[15] ? -{GEO_DX_H,GEO_DX_L} : {GEO_DX_H,GEO_DX_L};	//width of one source pixel on the screen, 12.20
+	wire [ 4: 0] GEO_XF = |GEO_XABS[31:20] ? 5'd16 : GEO_XABS >= 32'h000B504F ? 5'd10 : GEO_XABS >= 32'h00080000 ? 5'd6 :
+	                      GEO_XABS >= 32'h0005A827 ? 5'd3 : GEO_XABS >= 32'h00040000 ? 5'd2 : 5'd0;
+	wire [31: 0] GEO_XOVER = GEO_XABS - 32'h00100000;
+	wire [11: 0] GEO_ACEY = (12'd24 * {7'd0,GEO_XF}) >> 4;
+	//fix_tskip: transparent quads of the general path
+	wire         TSK_EN = 1;
+	wire [15: 0] TSK_C = 16'd0, TSK_K = 16'd96, TSK_D = 16'd3;
+	wire signed [31: 0] TSK_HX32 = $signed({GEO_DX_H,GEO_DX_L}) >>> 12;	//12.20 -> 8 fractional bits
+	wire signed [31: 0] TSK_HY32 = $signed({GEO_DY_H,GEO_DY_L}) >>> 12;
+	wire signed [31: 0] TSK_VX32 = $signed({GEO_LDX_H,GEO_LDX_L}) >>> 8;	//16.16 -> 8 fractional bits
+	wire signed [31: 0] TSK_VY32 = $signed({GEO_LDY_H,GEO_LDY_L}) >>> 8;
+	function automatic logic signed [15:0] TskSat(input logic signed [31:0] v);
+		return v > 32'sd32767 ? 16'sh7FFF : (v < -32'sd32768 ? 16'sh8000 : v[15:0]);
+	endfunction
+	wire signed [15: 0] TSK_HX = TskSat(TSK_HX32), TSK_HY = TskSat(TSK_HY32), TSK_VX = TskSat(TSK_VX32), TSK_VY = TskSat(TSK_VY32);
+	wire signed [31: 0] TSK_P0 = TSK_HX * TSK_VY;
+	wire signed [31: 0] TSK_P1 = TSK_HY * TSK_VX;
+	wire signed [32: 0] TSK_CROSS0 = {TSK_P0[31],TSK_P0} - {TSK_P1[31],TSK_P1};	//16 fractional bits
+	//one register on every clock (one clock is too short for the whole sum in the FPGA): the geometry only changes on CE_R and
+	//TSK_PACE is only taken on CE_R, every other clock (CLK_DIV), so TSK_PACE gets the same values as without the register
+	bit  signed [32: 0] TSK_CROSS;
+	always @(posedge CLK) TSK_CROSS <= TSK_CROSS0;
+	wire        [32: 0] TSK_AREA = TSK_CROSS[32] ? -TSK_CROSS : TSK_CROSS;
+	wire        [51: 0] TSK_KA = {36'd0,TSK_K} * {19'd0,TSK_AREA};
+	wire        [51: 0] TSK_SUM = {20'd0,TSK_C,16'd0} + (TSK_KA >> 4);
+	wire [15: 0] TSK_D16 = 16'd2;	//fix_tsk16: D of the transparent-skip pace for 16-bit cels
+	wire        [51: 0] TSK_SUB = {20'd0,SCOB_PRE0.BPP == 3'd6 ? TSK_D16 : TSK_D,16'd0};
+	wire        [51: 0] TSK_NET = TSK_SUM > TSK_SUB ? TSK_SUM - TSK_SUB : 52'd0;
+	bit  [ 7: 0] TSK_PACE;
+	always @(posedge CLK) if (EN && CE_R) TSK_PACE <= |TSK_NET[51:24] ? 8'd255 : TSK_NET[23:16];
+	bit  [ 7: 0] GEO_ACEX;
+	always @(posedge CLK) if (EN && CE_R) begin
+		GEO_LINES <= |GEO_EXT[32:20] ? 5'd31 : GEO_EXT[19:16] + (|GEO_EXT[15:0] ? 5'd1 : 5'd0);
+		GEO_AXIS <= ~|{GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L};
+		GEO_T90 <= ~|{GEO_DX_H,GEO_DX_L,GEO_LDY_H,GEO_LDY_L} && |{GEO_LDX_H,GEO_LDX_L} && |{GEO_DY_H,GEO_DY_L};
+		ACE_ON <= SCOB_FLAG.ACE;
+		GEO_Y12 <= GEO_AXIS && GEO_VABS[31:16] == 16'd1 && |GEO_VABS[15:0];
+		Y12_ADD <= |Y12_PROD[31:24] ? 8'd255 : Y12_PROD[23:16];
+		GEO_ACEX <= !GEO_AXIS ? 8'd0 :
+		            |GEO_VABS[31:17] ? GEO_ACEY[7:0] :
+		            GEO_VABS == 32'h00010000 && GEO_XABS > 32'h00100000 ? (GEO_XOVER[31:18] >= 14'd12 ? 8'd12 : {4'd0,GEO_XOVER[21:18]}) : 8'd0;
+	end
+	//a source pixel out of the screen: 107 ns (one line), 218 ns (scale 1.41): per line of the screen it spans
+	wire [ 7: 0] PACE_CLIP = GEO_LINES <= 5'd1 ? (SCOB_FLAG.ACE ? 8'd4 : 8'd3) :
+	                         GEO_LINES >= 5'd20 ? 8'd232 :
+	                         SCOB_FLAG.ACE ? 8'd11 * (GEO_LINES - 5'd1) : 8'd2 + 8'd12 * (GEO_LINES - 5'd1);
+	//out of the screen above or below: with ACE at one line or less nothing more than the walk (fix_clipace2)
+	wire [ 7: 0] PACE_CLIP0 = GEO_LINES <= 5'd1 ? (SCOB_FLAG.ACE ? 8'd0 : 8'd3) :
+	                          GEO_LINES >= 5'd20 ? 8'd232 :
+	                          SCOB_FLAG.ACE ? 8'd11 * (GEO_LINES - 5'd1) : 8'd2 + 8'd12 * (GEO_LINES - 5'd1);
+	//a source pixel drawn: without ACE about 54 ns more per word of source; with ACE, no gain between 1 and 2 of vertical scale
+	wire [ 7: 0] PACE_LINES = GEO_LINES >= 5'd20 ? 8'd144 : GEO_LINES >= 5'd3 ? 8'd8 * (GEO_LINES - 5'd2) : 8'd0;	//every line past the second
+	wire [ 7: 0] PACE_ACE = GEO_Y12 ? 8'd12 + Y12_ADD : ((SCOB_PRE0.BPP == 3'd6 ? 8'd4 : 8'd4) - (SCOB_FLAG.LCE ? 8'd1 : 8'd0)) + GEO_ACEX + (GEO_T90 ? 8'd14 : 8'd0);	//ACE + LCE: FZ-10 4 to 9 % faster than ACE alone
+	wire [ 7: 0] PACE_PIX = SCOB_FLAG.ACE ? PACE_ACE :
+	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_LINES >= 5'd2 ? 8'd4 : 8'd3) :
+	                        SCOB_PRE0.BPP >= 3'd3 ? 8'd1 : 8'd0;
+	//no penalty for two pixels written in the same cycle in different words: FZ-10 disc 3.4 page J, ACE at y 0-3 costs the same
+	//a transparent pixel, on top of the drawn pixel above
+	wire [ 7: 0] PACE_TRANS = SCOB_FLAG.ACE ? 8'd0 : (SCOB_PRE0.BPP == 3'd6 ? 8'd1 : 8'd3);	//with ACE the pixel cost PACE_ACE already covers it
+	//a source pixel whose quad covers no pixel centre pays no pixel pace (fix_nppace)
+	wire         NPF_ON = SCOB_PRE0.BPP != 3'd6 && SCOB_FLAG.ACE;	//below 16 bits, with ACE only
+	//each frame buffer read of a blend
+	wire [ 7: 0] W2_A = 8'd14;	//fix_w2: ACE blend read cost grows with the lines a source pixel spans
+	wire [12: 0] W2_ADD = ({5'd0,W2_A} * {8'd0,(GEO_LINES >= 5'd20 ? 5'd19 : GEO_LINES - (|GEO_LINES ? 5'd1 : 5'd0))}) >> 1;
+	wire [ 7: 0] PACE_CFB = SCOB_FLAG.ACE ? 8'd9 + (|W2_ADD[12:7] ? 8'd127 : W2_ADD[7:0]) : 8'd9;	//one read per pixel; FZ-10 half blend with ACE 17664 us against 11296 without blend (disc 3.4 J9)
+	bit          OUT_A_GO_FF,OUT_B_GO_FF;
+	function automatic bit PixT(input bit [15:0] pin, input bit [15:0] pip, input bit tr, input bit [3:0] lb, input bit rep8,
+	                            input bit pk, input bit [1:0] tllsb, input bit bgnd);
+		bit [4:0] R,G,B;
+		casex (lb)
+			4'b1101: {R,G,B} = {{pin[7:5],pin[7:6]&{2{rep8}}},{pin[4:2],pin[4:3]&{2{rep8}}},{pin[1:0],pin[1:0]&{2{rep8}},pin[1]&rep8}};
+			4'b111x: {R,G,B} = {pin[14:10],pin[9:5],pin[4:0]};
+			default: {R,G,B} = {pip[14:10],pip[9:5],pip[4:0]};
+		endcase
+		case (pk ? 2'd1 : tllsb)
+			2'd0: B[0] = 1'b0;
+			2'd2: B[0] = B[4];
+			2'd3: B[0] = G[0];
+			default:;
+		endcase
+		return (~|{R,G,B} & ~bgnd) | tr;
+	endfunction
+	wire         T_A_NOW = PixT(PIN_A, PIP_DOUT, TRANSPARENT, {SCOB_PRE0.LINEAR,SCOB_PRE0.BPP}, SCOB_PRE0.REP8, SCOB_FLAG.PACKED, SCOB_PRE1.TLLSBIPN, SCOB_FLAG.BGND);
+	wire         T_B_NOW = PixT(PIN_B, PIP_B_DOUT, TRANSPARENT_B, {SCOB_PRE0.LINEAR,SCOB_PRE0.BPP}, SCOB_PRE0.REP8, SCOB_FLAG.PACKED, SCOB_PRE1.TLLSBIPN, SCOB_FLAG.BGND);
+	wire         TSK_A = TSK_EN && T_A_NOW;
+	wire         TSK_B = TSK_EN && T_B_NOW;
+	bit          TSK_A_GO_FF,TSK_B_GO_FF,OUT_A_RG_FF,OUT_B_RG_FF;
+	bit  [ 7: 0] TAK_LAST_A,TAK_LAST_B;
+	assign CRNA_SKIP = CRNA_ST == CRN_OUT && !XY_FIFO_A_FULL && !LF_A_RUN && !LF_SKIP && CE_F && REGIS_A_OUT && (RG_A_ONE || TSK_A);
+	assign CRNB_SKIP = CRNB_ST == CRN_OUT && !XY_FIFO_A_FULL && !LF_B_RUN && !LF_SKIP && CE_F && REGIS_B_OUT && (RG_B_ONE || TSK_B);
+	wire [ 7: 0] PACE_TAK_A = (MATH_A_STAT.RC ? (MATH_A_RCV ? PACE_CLIP0 : PACE_CLIP) : (UNPACKER_A_NOSRC ? (UNPACKER_A_NEXT_T ? 8'd1 : 8'd0) : (NPF_ON && MATH_A_STAT.NP ? 8'd0 : PACE_PIX)) + (MATH_A_STAT.NP || (UNPACKER_A_NOSRC && UNPACKER_A_NEXT_T) ? 8'd0 : PACE_LINES));
+	wire         PACE_A_PAY = CRNA_ST == CRN_IDLE && XY_FIFO_A_EMPTY && |PACE_A[23:2];
+	wire [ 7: 0] PACE_TAK_B = (MATH_B_STAT.RC ? (MATH_B_RCV ? PACE_CLIP0 : PACE_CLIP) : (UNPACKER_B_NOSRC ? (UNPACKER_B_NEXT_T ? 8'd1 : 8'd0) : (NPF_ON && MATH_B_STAT.NP ? 8'd0 : PACE_PIX)) + (MATH_B_STAT.NP || (UNPACKER_B_NOSRC && UNPACKER_B_NEXT_T) ? 8'd0 : PACE_LINES));
+	wire         PACE_B_PAY = CRNB_ST == CRN_IDLE && XY_FIFO_A_EMPTY && |PACE_B[23:2];
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			{PACE_A,PACE_B} <= '0;
+			{OUT_A_GO_FF,OUT_B_GO_FF} <= '0;
+		end
+		else if (EN) begin
+			if (CE_F) begin
+				OUT_A_GO_FF <= CRNA_ST == CRN_OUT && !XY_FIFO_A_FULL && !LF_A_RUN && !LF_SKIP;
+				OUT_B_GO_FF <= CRNB_ST == CRN_OUT && !XY_FIFO_A_FULL && !LF_B_RUN && !LF_SKIP;
+				OUT_A_RG_FF <= REGIS_A_OUT;
+				OUT_B_RG_FF <= REGIS_B_OUT;
+				TSK_A_GO_FF <= CRNA_SKIP && TSK_A;
+				TSK_B_GO_FF <= CRNB_SKIP && TSK_B;
+			end
+			if (CE_R) begin
+				PACE_A <= PACE_A + (UNPACKER_A_TAK_EN ? {16'd0,PACE_TAK_A} : 24'd0) + (OUT_A_GO_FF && IPN_A.T && !(TSK_EN && OUT_A_RG_FF) ? {16'd0,PACE_TRANS} : 24'd0) + (TSK_A_GO_FF ? {16'd0,TSK_PACE} - {16'd0,TAK_LAST_A} : 24'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_A_FF ? {16'd0,PACE_CFB} : 24'd0) + (UNPACKER_A_PKT ? (UNPACKER_A_PKT_TR ? 24'd4 : 24'd2) : 24'd0) - (PACE_A_PAY ? 24'd4 : 24'd0);
+				PACE_B <= PACE_B + (UNPACKER_B_TAK_EN ? {16'd0,PACE_TAK_B} : 24'd0) + (OUT_B_GO_FF && IPN_B.T && !(TSK_EN && OUT_B_RG_FF) ? {16'd0,PACE_TRANS} : 24'd0) + (TSK_B_GO_FF ? {16'd0,TSK_PACE} - {16'd0,TAK_LAST_B} : 24'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_B_FF ? {16'd0,PACE_CFB} : 24'd0) + (UNPACKER_B_PKT ? (UNPACKER_B_PKT_TR ? 24'd4 : 24'd2) : 24'd0) - (PACE_B_PAY ? 24'd4 : 24'd0);
+				if (UNPACKER_A_TAK_EN) TAK_LAST_A <= PACE_TAK_A;
+				if (UNPACKER_B_TAK_EN) TAK_LAST_B <= PACE_TAK_B;
+				if (SPR_NEXT) {PACE_A,PACE_B} <= '0;
+			end
+		end
+	end
+	assign UNPACKER_A_READY = UNPACKER_A_READY_IN;
+	assign UNPACKER_B_READY = UNPACKER_B_READY_IN;
+
 	bit  [15: 0] REG_XOUT_FF,REG_YOUT_FF;
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
@@ -2034,7 +2251,9 @@ module MADAM_SE
 		
 		.YO(MATH_A_Y),
 		.XLO(MATH_A_XL),
-		.XRO(MATH_A_XR)
+		.XRO(MATH_A_XR),
+		.ONEL(MATH_A_ONEL),
+		.RCVO(MATH_A_RCV)
 	);
 	
 	bit  [15: 0] MATH_B_XA,MATH_B_YA;
@@ -2063,7 +2282,9 @@ module MADAM_SE
 		
 		.YO(MATH_B_Y),
 		.XLO(MATH_B_XL),
-		.XRO(MATH_B_XR)
+		.XRO(MATH_B_XR),
+		.ONEL(MATH_B_ONEL),
+		.RCVO(MATH_B_RCV)
 	);
 	assign {XA,YA} = !CRN_ROW_INIT_SEL ? {MATH_A_XA,MATH_A_YA} : {MATH_B_XA,MATH_B_YA};
 	
@@ -2233,6 +2454,7 @@ module MADAM_SE
 			if (DRAW_B_FF  && (BUS_STATE_FF == CFB_INIT0)) begin DST_PAGE_B <= DST_ADDR_B_NEW[23:11]; end
 			if (DRAW_A_FF  && (BUS_STATE == CFB_INIT0 || BUS_STATE_FF == CFB_INIT1 || BUS_STATE_FF == CFB_WRITE1 || BUS_STATE_FF == CFB_READ1)) begin DST_ADDR_A <= DST_ADDR_A_NEW; DST_PB_A <= &DST_ADDR_A_NEW[10:2]; end
 			if (DRAW_B_FF  && (BUS_STATE == CFB_INIT0 || BUS_STATE_FF == CFB_INIT1 || BUS_STATE_FF == CFB_WRITE1 || BUS_STATE_FF == CFB_READ1)) begin DST_ADDR_B <= DST_ADDR_B_NEW; DST_PB_B <= &DST_ADDR_B_NEW[10:2]; end
+			if (SPR_NEXT) {DST_PB_A,DST_PB_B} <= '0;	//a page end left by the previous cel (by an engine this cel does not use) would stop every burst after one pixel
 			DST_READ <= DOLO_CYCLE;
 			if (BUS_STATE_FF == CFB_WRITE0 && (XY_FIFO_A_EMPTY || DST_PB_A || DST_PB_B) && !DST_LAST_A) DST_LAST_A <= 1;
 			if (((DRAW_A_FF && DST_ADDR_A_NEW[23:11] != DST_PAGE_A) || (DRAW_B_FF && DST_ADDR_B_NEW[23:11] != DST_PAGE_B)) && FB_IN_DRAM && !DST_LAST_A) DST_LAST_A <= 1;
@@ -2777,7 +2999,11 @@ module MADAM_UNPACKER (
 	output reg         EOL,
 	output reg [15: 0] OUT,
 	output reg         NEXT,
-	output             READY
+	output             READY,
+	output             NOSRC,
+	output             NEXT_T,
+	output reg         PKT,		//a packet header has just been read
+	output reg         PKT_TR
 	
 `ifdef DEBUG
 	                   ,
@@ -2822,11 +3048,13 @@ module MADAM_UNPACKER (
 			T <= 0;
 			EOL <= 1;
 			NEXT <= 0;
+			PKT <= 0;
 			// synopsys translate_off
 			BUF <= '0;
 			// synopsys translate_on
 		end
 		else if (EN && CE) begin
+			PKT <= 0;
 			case (BPP)
 				3'h1: BITS_BY_BPP = 5'd1;
 				3'h2: BITS_BY_BPP = 5'd2;
@@ -2890,6 +3118,8 @@ module MADAM_UNPACKER (
 					BUF_LOAD = BIT_CNT_OVER;
 					CODE_NEXT = 1;
 					{TYPE,COUNT} <= CODE[7:0];
+					PKT <= CODE[7:6] != 2'b00;
+					PKT_TR <= CODE[7:6] == 2'b10;
 					BPP <= PRE0_BPP;
 					if (CODE[7:6] == 2'b00) begin
 						BUF_LOAD = 0;
@@ -2991,6 +3221,8 @@ module MADAM_UNPACKER (
 		end
 	end 
 	assign READY = ((UP_ST == UP_DATA_READ || UP_ST == UP_TRANSPARENT) && AVAIL && !SKIP) || (UP_ST == UP_DATA_REPEAT && !SKIP);
+	assign NOSRC = UP_ST == UP_TRANSPARENT || UP_ST == UP_DATA_REPEAT;			//the next pixel does not come from the source
+	assign NEXT_T = UP_ST == UP_TRANSPARENT || (UP_ST == UP_DATA_REPEAT && T);		//the next pixel is one of a packed transparent run
 
 endmodule
 	
@@ -3064,6 +3296,7 @@ module MADAM_PPMP (
 			if (PPMPC.MS == 2'b10) DV1_R = IPN.R[1:0];
 			if (PPMPC.MS == 2'b10) DV1_G = IPN.G[1:0];
 			if (PPMPC.MS == 2'b10) DV1_B = IPN.B[1:0];
+			if (AV[4:3] == 2'b11) {DV1_R,DV1_G,DV1_B} = {IPN.R[1:0],IPN.G[1:0],IPN.B[1:0]};	//FZ-10: the divider of the first source comes from the pixel
 			
 			case (PPMPC.S1)
 				1'b0: {TEMPA_R,TEMPA_G,TEMPA_B} = {IPN.R,IPN.G,IPN.B};
@@ -3101,8 +3334,8 @@ module MADAM_PPMP (
 			case (AV[4:3])
 				2'b00: {DIVB_R,DIVB_G,DIVB_B} = {{TEMPB_R[4:0]},{TEMPB_G[4:0]},{TEMPB_B[4:0]}};
 				2'b01: {DIVB_R,DIVB_G,DIVB_B} = {{1'b0,TEMPB_R[4:1]},{1'b0,TEMPB_G[4:1]},{1'b0,TEMPB_B[4:1]}};
-				2'b10,
-				2'b11: {DIVB_R,DIVB_G,DIVB_B} = {{2'b00,TEMPB_R[4:2]},{2'b00,TEMPB_G[4:2]},{2'b00,TEMPB_B[4:2]}};
+				2'b10: {DIVB_R,DIVB_G,DIVB_B} = {{2'b00,TEMPB_R[4:2]},{2'b00,TEMPB_G[4:2]},{2'b00,TEMPB_B[4:2]}};
+				2'b11: {DIVB_R,DIVB_G,DIVB_B} = {{2'b00,TEMPB_R[4:2]},{2'b00,TEMPB_G[4:2]},{2'b00,TEMPB_B[4:2]}} & {{1'b0,TEMPB_R[4:1]},{1'b0,TEMPB_G[4:1]},{1'b0,TEMPB_B[4:1]}};	//FZ-10: /2 and /4 at once give the AND of the two
 			endcase
 			{PXORB_R,PXORB_G,PXORB_B} = ({DIVA_R[4:0],DIVA_G[4:0],DIVA_B[4:0]} & {5*3{SCOB_FLAG.PXOR}}) | {5*3{AV[0]}};
 			{ADDB_R,ADDB_G,ADDB_B} = {DIVB_R,DIVB_G,DIVB_B} ^ {PXORB_R,PXORB_G,PXORB_B};
@@ -3139,6 +3372,10 @@ module MADAM_PPMP (
 			PEN_R = !CLIP_PIPE && ((|DIVR_R[7:5] && !NEG_PIPE && !ADDB6_R_PIPE) || (!DIVR_R[7] && |DIVR_R[6:5] && (NEG_PIPE || ADDB6_R_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_R[7] ? 5'h00 : DIVR_R[4:0];
 			PEN_G = !CLIP_PIPE && ((|DIVR_G[7:5] && !NEG_PIPE && !ADDB6_G_PIPE) || (!DIVR_G[7] && |DIVR_G[6:5] && (NEG_PIPE || ADDB6_G_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_G[7] ? 5'h00 : DIVR_G[4:0];
 			PEN_B = !CLIP_PIPE && ((|DIVR_B[7:5] && !NEG_PIPE && !ADDB6_B_PIPE) || (!DIVR_B[7] && |DIVR_B[6:5] && (NEG_PIPE || ADDB6_B_PIPE))) ? 5'h1F : !CLIP_PIPE && DIVR_B[7] ? 5'h00 : DIVR_B[4:0];
+
+			//CCB NOBLK clear: a pixel that comes out black (000) is written as almost black (FZ-10, disc 3.5 RENDU DETAIL: the
+			//8-bit uncoded cels with BGND set and a solid write)
+			if (!SCOB_FLAG.NOBLK && !{PEN_R,PEN_G,PEN_B}) PEN_R[0] = 1'b1;
 			
 			case (SCOBCTL.B0POS)
 				2'b00: PEN_B[0] = 0;
@@ -3181,7 +3418,9 @@ module MADAM_MATH_PLATFORM (
 	
 	output    [11: 0] YO,
 	output    [11: 0] XLO,
-	output    [11: 0] XRO
+	output    [11: 0] XRO,
+	output            ONEL,
+	output            RCVO
 	
 `ifdef DEBUG
 	                   ,
@@ -3341,6 +3580,8 @@ module MADAM_MATH_PLATFORM (
 	                   ((~Xa0[31] & Xa0[30:16] > {3'b000,CLIPX}) & (~Xa1[31] & Xa1[30:16] > {3'b000,CLIPX}) & (~Xa2[31] & Xa2[30:16] > {3'b000,CLIPX}) & (~Xa3[31] & Xa3[30:16] > {3'b000,CLIPX})) | 
 	                   (~MUNK_X1[15] & (MUNK_X1[14:0] > {3'b000,CLIPX}) & LINE_CLIP) | 
 							 (~TEMP_Y_T1[15] & (TEMP_Y_T1[14:0] > {4'b0000,CLIPY}) & LINE_CLIP);
+	//out of the window above or below (fix_clipace2): the Y terms of REGION_CLIP
+	assign RCVO = (Ya0[31] & Ya1[31] & Ya2[31] & Ya3[31]) | (~TEMP_Y_T1[15] & (TEMP_Y_T1[14:0] > {4'b0000,CLIPY}) & LINE_CLIP);
 	
 	always @(posedge CLK) begin
 		bit  [15: 0] Xtemp,Ytemp;
@@ -3473,6 +3714,24 @@ module MADAM_MATH_PLATFORM (
 	assign YO = MathClipCoord(Y);
 	assign XLO = MathClipCoord(X1);
 	assign XRO = MathClipCoord(X2);
+	
+	function automatic bit Within1(input bit signed [15:0] a, input bit signed [15:0] b, input bit signed [15:0] c, input bit signed [15:0] d);
+		bit signed [15:0] mn,mx;
+		mn = a; mx = a;
+		if (b < mn) mn = b; if (b > mx) mx = b;
+		if (c < mn) mn = c; if (c > mx) mx = c;
+		if (d < mn) mn = d; if (d > mx) mx = d;
+		return (mx - mn) <= 16'sd1;
+	endfunction
+	//only reduced or rotated quads: every step (a0->a1, a0->a3, a3->a2) shorter than one pixel in X and in Y (FZ-10 disc 3.5
+	//CELS CHEMIN GENERAL: at scale 1.41 the console keeps the time of the full walk)
+	function automatic bit Step1(input bit [31:0] a, input bit [31:0] b);
+		bit signed [31:0] d;
+		d = a - b;
+		return (d < 32'sh00010000) && (d > -32'sh00010000);
+	endfunction
+	assign ONEL = Within1(Ya0[31:16],Ya1[31:16],Ya2[31:16],Ya3[31:16]) && Within1(Xa0[31:16],Xa1[31:16],Xa2[31:16],Xa3[31:16]) &&
+	              Step1(Xa1,Xa0) && Step1(Ya1,Ya0) && Step1(Xa3,Xa0) && Step1(Ya3,Ya0) && Step1(Xa2,Xa3) && Step1(Ya2,Ya3);
 	
 `ifdef DEBUG
 	assign DBG_Xa0_OVER = (Xa0[31:26] != 6'b000000 && Xa0[31:26] != 6'b111111);

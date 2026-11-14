@@ -272,13 +272,16 @@ module P3DO_CDROM
 			default: CD_REV = 18'd150000;
 		endcase
 	endfunction
+	//FZ-10, disc 3.5 CD FICHIERS: jumps of 2000 blocks through the file system take 87-205 ms, median 146 ms (the core gave
+	//125 ms), and disc 3.1 raw jumps of 4096 blocks 156.8 ms: 2048 and 4096 raised from 123000 / 140000. The random scan of
+	//Mad Dog McCree (filmed on the FZ-10: one seek every 0.282 s) stays within 1 ms per seek.
 	function bit [19:0] CD_SEEK(input bit [3:0] k);	//us, for 256 << k blocks
 		case (k)
 			4'd0: CD_SEEK = 20'd96000;
 			4'd1: CD_SEEK = 20'd102000;
 			4'd2: CD_SEEK = 20'd111000;
-			4'd3: CD_SEEK = 20'd123000;
-			4'd4: CD_SEEK = 20'd140000;
+			4'd3: CD_SEEK = 20'd135000;
+			4'd4: CD_SEEK = 20'd152000;
 			4'd5: CD_SEEK = 20'd163000;
 			4'd6: CD_SEEK = 20'd197000;
 			4'd7: CD_SEEK = 20'd245000;
@@ -295,6 +298,14 @@ module P3DO_CDROM
 
 	bit          SPEED2;
 	wire [ 7: 0] STATUS_OUT = STATUS | {6'd0,SPEED2,1'b0};	//bit 1: double speed (0xE3 on the FZ-10, 0x80 in Mode set page 3)
+
+	//Start of the drive, from three cold boots of Mad Dog McCree filmed on an FZ-10: the first spin-up after the power-on
+	//(reset) or after a new disc answers SPINUP_US after the command (motor, focus, TOC), so that the first data read
+	//comes about 6.4 s after the power-on as on the console (4.67 to 4.85 s later than with an immediate answer).
+	//A spin-up after a spin-down still answers at once (not measured).
+	localparam bit [22:0] SPINUP_US = 23'd4780000;
+	bit          SPUN;
+	bit  [22: 0] SPIN_CNT;
 	bit          SPEED_LAST = 0;
 	bit          PC_START,BLK_PEND,BLK_SENT;
 	bit          PC_BUSY = 0;
@@ -445,6 +456,8 @@ module P3DO_CDROM
 			IO_ST <= IO_IDLE;
 			COMMAND <= '{8{'0}};
 			STATUS <= CDD_IS_LOADED ? 8'hC1 : 8'h81;	//a disc kept through the reset is still in
+			SPUN <= 0;	//power-on: the drive starts again
+			SPIN_CNT <= '0;
 			ERROR <= ERROR_NO_ERR;
 			
 			CMD_DATA_CNT <= '0;
@@ -614,6 +627,7 @@ module P3DO_CDROM
 			endcase
 			
 			if (CMD_EXEC_WAIT && CE) CMD_EXEC_WAIT <= CMD_EXEC_WAIT - 16'd1;
+			if (SPIN_CNT && US_TICK) SPIN_CNT <= SPIN_CNT - 23'd1;
 			case (CMD_ST)
 				CMD_IDLE: if (CMD_REC && CE) begin
 					//A command clears the error bit left by the previous one and the drive is ready
@@ -623,7 +637,11 @@ module P3DO_CDROM
 					STATUS[0] <= 1;
 					case (CMD_CODE)
 						8'h02: begin	//Spin up
-							if (STATUS[7] && STATUS[6]) begin STATUS[5] <= 1; STATUS[0] <= 1; ERROR <= ERROR_NO_ERR; end
+							if (STATUS[7] && STATUS[6]) begin
+								STATUS[5] <= 1; STATUS[0] <= 1; ERROR <= ERROR_NO_ERR;
+								if (!SPUN) SPIN_CNT <= SPINUP_US;	//first spin-up of this disc: the answer waits for the drive
+								SPUN <= 1;
+							end
 							else begin STATUS[4] <= 1; STATUS[0] <= 0; ERROR <= ERROR_DISC_OUT; end
 							CMD_ST <= CMD_EXEC;
 						end
@@ -759,7 +777,7 @@ module P3DO_CDROM
 					STAT_FIFO_WPOS <= '0;
 				end
 				
-				CMD_EXEC: if (!CMD_EXEC_WAIT && CE) begin
+				CMD_EXEC: if (!CMD_EXEC_WAIT && !SPIN_CNT && CE) begin
 					case (COMMAND[0])
 						8'h02: begin	//Spin up
 							STAT_FIFO_WPOS <= STAT_FIFO_WPOS + 4'd1;
@@ -1061,13 +1079,16 @@ module P3DO_CDROM
 			CDD_IS_LOADED_OLD <= CDD_IS_LOADED;
 			if (CDD_IS_LOADED && !CDD_IS_LOADED_OLD) begin
 				STATUS <= 8'hC1;
+				SPUN <= 0;	//a new disc: the next spin-up waits for the drive
 			end
 			if (!CDD_IS_LOADED && CDD_IS_LOADED_OLD) begin
 				STATUS <= 8'h01;	//disc being replaced: door open, no disc
+				SPUN <= 0;
 			end
 			TRAY_OPEN_OLD <= TRAY_OPEN;
 			if (TRAY_OPEN && !TRAY_OPEN_OLD) begin
 				STATUS <= 8'h01;
+				SPUN <= 0;
 			end
 		end
 	end
