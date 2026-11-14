@@ -1,0 +1,66 @@
+P2I BENCH 3.3 CELS COUPES (clipped cels) - FZ-10 (photo 01-cels-coupes.jpg). Microseconds, median of 9 draws of one 16-bit unpacked cel from DRAM; all 74 values are multiples of 16.
+
+K0   6992   6544  10864  10272  13280
+K1  11280  13232  11376  13328  11488
+K2   7856   7952  12752  10176  12736
+K3  10256  12736  10224  12304  11728
+K4  14960  12864  18640  14896  23440
+K5  17120  20048  10560  20048  10432
+K6  20048  10576  20048  10560   4720
+K7   3280   9760   6368   7312   4832
+K8   7296   5008   7616   5136   9088
+K9   5824   9088   5840   9104   5824
+KA  15312  10816  17200  12192  12704
+KB  10432  11488   9616  11552   9520
+KC  11392   8176  11552   8048  23408
+KD  17136  13280  11344  12304  11840
+KE  12352  11872  12304  11840
+
+Order (src/bench/sweep.c, table cuts[]), each case without ACE then with ACE:
+case  W    H    x     y     scale  what is outside the screen        no ACE    ACE
+ 0    150  150     0     0  1.41   nothing                             6992   6544
+ 1    226  150     0     0  1.41   nothing                            10864  10272
+ 2    300  150     0     0  1.41   74 columns right                   13280  11280
+ 3    300  150  -104     0  1.41   74 columns left                    13232  11376
+ 4    300  150   -52     0  1.41   37 columns each side               13328  11488
+ 5    150  170     0     0  1.41   nothing                             7856   7952
+ 6    150  300     0     0  1.41   130 rows below                     12752  10176
+ 7    150  300     0  -184  1.41   130 rows above                     12736  10256
+ 8    150  300     0   -92  1.41   65 rows each side                  12736  10224
+ 9    226  170     0     0  1.41   nothing, fills the screen          12304  11728
+10    300  170   -52     0  1.41   full screen + 74 columns           14960  12864
+11    226  300     0   -92  1.41   full screen + 130 rows             18640  14896
+12    300  300   -52   -92  1.41   both (scene background unturned)   23440  17120
+13    300  300   400     0  1.41   all, right                         20048  10560
+14    300  300  -500     0  1.41   all, left                          20048  10432
+15    300  300     0   300  1.41   all, below                         20048  10576
+16    300  300     0  -500  1.41   all, above                         20048  10560
+17    150  150     0     0  1      nothing                             4720   3280
+18    300  150     0     0  1      nothing                             9760   6368
+19    300  150   160     0  1      140 columns right                   7312   4832
+20    300  150  -140     0  1      140 columns left                    7296   5008
+21    150  240     0     0  1      nothing                             7616   5136
+22    150  300     0     0  1      60 rows below                       9088   5824
+23    150  300     0   -60  1      60 rows above                       9088   5840
+24    150  300     0   -30  1      30 rows each side                   9104   5824
+25    300  240    10     0  1      nothing                            15312  10816
+26    300  300    10   -30  1      60 rows (scene background scale 1) 17200  12192
+27    300  300     0     0  0.5    nothing                            12704  10432
+28    300  300   245     0  0.5    right half                         11488   9616
+29    300  300   -75     0  0.5    left half                          11552   9520
+30    300  300     0   165  0.5    lower half                         11392   8176
+31    300  300     0   -75  0.5    upper half                         11552   8048
+32    case 12 with ACSC + ALSC                                        23408  17136
+33    case 2 with ACSC + ALSC                                         13280  11344
+34    case 9 mirrored in X                                            12304  11840
+35    case 9 mirrored in Y                                            12352  11872
+36    case 9 mirrored in X and Y                                      12304  11840
+
+Reading:
+- All inside the screen at 1.41, without ACE: 155 to 160 ns per screen pixel (6992 for 212 x 212, 12304 for 320 x 240). ACE saves only 0 to 6 % there (it saves 30 % at scale 1).
+- A source pixel outside the screen, scale 1.41, without ACE: 218 ns (74 columns: 13280 - 10864 = 2416 us for 11100 pixels; both sides of a full screen: (23440 - 12304) / 51580 = 216 ns; all outside: 20048 / 90000 = 223 ns), the same on all four sides. With ACE 91 to 117 ns.
+- The same pixel at scale 1: about 106 ns without ACE (OFF W320 of disc 3.0: 107 ns), so 1.41 costs twice as much per pixel out of the screen.
+- Rows outside the screen, without ACE: (150 wide) 37.7 us per row at 1.41, 24.5 us at scale 1; (226 wide, 1.41) 48.7 us; (300 wide, scale 1) 31.5 us.
+- The flags ACSC and ALSC change nothing in these cases (32, 33), and the direction of drawing changes nothing (34-36).
+- Case 12 equals W2[1] of disc 3.1 (23408, packed, in VRAM): packing and the memory of the source do not matter here.
+- The scene's background without rotation is then 12304 (visible part) + 11136 (51580 source pixels outside the screen); the core has 15264 for it, so what is missing there is the cost of the pixels outside the screen.

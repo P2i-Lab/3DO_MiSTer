@@ -1,0 +1,56 @@
+P2I BENCH 3.5 CELS CHEMIN GENERAL (cel general path) (grid S) - FZ-10 (photo 02-cels-chemin-general.jpg, 2026-11-12, inside TOUT 3.5 (all) after CARTE CPU (CPU map))
+Microseconds for a list of 8 cels of 64 x 64 (sweep.c group_genpath). Case = row * 5 + column.
+Core: simulated mes18, run s71gp (page alone, image of 2026-11-11 23:14; to be redone on the TOUT 3.5 path with the burned image: run s75all).
+
+FZ-10
+S0   2720   3040   3696   4560   5264
+S1   9392  14656   2224   2528   2784
+S2   3344   3856   8224  11952   2544
+S3   2928   3312   4224   4800   9040
+S4  14208   1904   2144   2496   2944
+S5   3376   7968  11568   4400   5120
+S6   6160   3440   4064   4496   5472
+S7   5952   3856   4112   4768   5088
+S8   3424   3632   6320   7152   4448
+S9   6424
+
+core mes18 (s71gp)
+S0   3280   3888   5136   6448   5024
+S1   9808  14256   3104   3440   4224
+S2   4416   3600   8608   8576   3024
+S3   3712   5072   6496   4672   9792
+S4  13840   2704   3424   3904   4352
+S5   3312   7664   7696   4528   5984
+S6   7392   3488   5248   4992   8736
+S7   7968   7104   7152   5104   5296
+S8   4720   4704   8816   9568   5152
+S9   5424
+
+case  what                                   FZ-10   core   core/FZ-10
+ 0- 6 8 bits coded, scale 0.33 0.5 0.71 0.85 1 1.41 2, no ACE
+        2720 3040 3696 4560 5264 9392 14656  /  3280 3888 5136 6448 5024 9808 14256
+        ratios 1.21 1.28 1.39 1.41 0.95 1.04 0.97
+ 7-13 the same with ACE
+        2224 2528 2784 3344 3856 8224 11952  /  3104 3440 4224 4416 3600 8608 8576
+        ratios 1.40 1.36 1.52 1.32 0.93 1.05 0.72
+14-20 6 bits coded, the 7 scales, no ACE
+        2544 2928 3312 4224 4800 9040 14208  /  3024 3712 5072 6496 4672 9792 13840
+        ratios 1.19 1.27 1.53 1.54 0.97 1.08 0.97
+21-27 the same with ACE
+        1904 2144 2496 2944 3376 7968 11568  /  2704 3424 3904 4352 3312 7664 7696
+        ratios 1.42 1.60 1.56 1.48 0.98 0.96 0.67
+28-30 16 bits, scale 0.33 0.6 0.85, no ACE   4400 5120 6160  /  4528 5984 7392   ratios 1.03 1.17 1.20
+31-33 the same with ACE                      3440 4064 4496  /  3488 5248 4992   ratios 1.01 1.29 1.11
+34-37 8 bits coded, rotation 30 and 45 deg at scale 1, then at 0.71, no ACE
+        5472 5952 3856 4112  /  8736 7968 7104 7152   ratios 1.60 1.34 1.84 1.74
+38-41 the same with ACE
+        4768 5088 3424 3632  /  5104 5296 4720 4704   ratios 1.07 1.04 1.38 1.30
+42-43 16 bits perspective (HDDX, HDDX+HDDY), no ACE   6320 7152  /  8816 9568   ratios 1.39 1.34
+44-45 the same with ACE                                4448 6424  /  5152 5424   ratios 1.16 0.84
+
+Reading:
+- scale 1 is right on the core (0.93-0.98);
+- reduced cels (0.33-0.85) are 1.2-1.6 times too slow on the core, coded 8 and 6 bits, with and without ACE. The core's time is
+  not monotonic: 0.85 takes longer than 1 (8 bits: 6448 > 5024), while the FZ-10 grows steadily with the scale;
+- rotations without ACE are 1.34-1.84 times too slow;
+- scale 2 with ACE is too fast (0.67-0.72): the known upscaled ACE issue.

@@ -1,0 +1,52 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, CD AVANCE (CD steps), photo 09-cd-avance.jpg
+# Times in microseconds (median). The 32 FZ-10 times are multiples of 16.
+# Order (src/bench/cd.c, group_cd2):
+#   Z0-Z1 : one block read, then the block located "gap" blocks further on, at 2X, gap = 1 2 3 4 6 / 8 12 16 32 64
+#   Z2    : same at 1X, gap = 1 2 3 4 6
+#   Z3    : next block after a wait of 20 100 500 1000 2000 ms
+#   Z4    : consecutive blocks, requests of 1 2 4 8 12 blocks
+#   Z5    : requests of 16 blocks; 2X read right after a 1X read; 64 blocks at slow, normal, fast pitch
+#   Z6    : 64 blocks with read-ahead enabled, disabled
+# The "slow pitch" cell also contains a jump of 2000 blocks: it does not measure the pitch alone.
+
+# FZ-10
+Z0  81680  88352  95024  33408  46784
+Z1  60160  86912  45376  83968  92336
+Z2 163296 176720  53456  66848  93600
+Z3   5744   4064   4528   4224   4080
+Z4   6704  13408  26880  53744  80640
+Z5 107520  11440 872480 506880 506768
+Z6 501856 507072
+B2048 9D2F38E8 5032504400003C21
+B2352 ERREUR D13D1017  (ERREUR = error)
+D2352 ERREUR D13D1017
+SUBQ  87 80 14 01 01 04 0D 1B 04 0B 1B E3
+
+# Simulated core (1109c + signed zero, run s305, image 8512CA8E)
+Z0   2976   2976   2976   2976   2976
+Z1   2976   2976   2976   2976   2976
+Z2   2976   2976   2976   2976   2976
+Z3   3936   4672   4672   4224   4576
+Z4   2976   5968  11968  23968  35968
+Z5  47968   6000 194080 194912 194928
+Z6 193888 200672
+B2048 9D2F38E8 5032504400003C21
+B2352 1F68923E 0346500150325044
+D2352 1F68923E 0346500150325044
+SUBQ  87 00 41 01 01 04 0D 1A 04 0B 1A E1
+
+# Interpretation
+# - ioi_Offset counts from 00:00:00: block 17000 is sector 16850 of the image (CRC 9D2F38E8 checked on the image).
+# - D13D1017 = device "CD", severe, ER_ParamError (23): the console rejects 2352 bytes on a data track, the core accepts.
+# - SUBQ: 87 = command, 14 = ADR 1 + data track, track 1, index 1, absolute then relative position (binary), E3 = status.
+#   Requested block 19000; the console is at 19002 (04:0D:1B), the core at 19001.
+#   Differences with the core: byte 1 (80 / 00), byte 2 (14 / 41, nibbles swapped), status (E3 / E1, double-speed bit).
+#   These core bytes come from our commit 2a9f1a9; they had no hardware reference.
+
+# Model (hypothesis) of forward jumps, burned disc, towards block 5000
+# T = 6688 us per block at 2X, 13376 us at 1X; R = one revolution = 68,3 ms at 2X, 136,6 ms at 1X (10,2 blocks).
+# Time = (gap + 1) x T + n x R, n integer, the smallest result greater than or equal to a latency L.
+# L between 26,75 and 33,4 ms at 2X, between 40,1 and 53,5 ms at 1X.
+# Reproduces 14 of the 15 values within 0,2 %, gap 64 within 1 % (the revolution gets longer with the radius).
+# Re-reading the same block (gap -1, version 2.3: 67,9 ms) follows the same rule.
+# The SAUT (jump) lines of version 2.3 alternate forward jump and backward jump: they do not test this rule.

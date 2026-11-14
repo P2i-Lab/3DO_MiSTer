@@ -1,0 +1,17 @@
+P2I BENCH 3.1 - FZ-10 (photos 01a, 01b, 09, 10, 11)
+
+ENDURANCE 5 MIN: TOURS (laps) 459, TEMPS (time) 300 S, every error counter 0 (DRAM, VRAM, REMPL (fill), COPIE (copy), CELS, CD).
+
+PORT MANETTE DIRECT (direct control port), input buffer 001FD57C:
+  at rest:  PAD 00000000; words 0-44 are 0; 45: FFFFFFFF  46: 8000FFFF  47: FFFFFFFF  48: FFFFFFFF  49: FFFFFFFF
+  A held:   PAD 08000000; words 0-44 are 0; 45: FFFFFFFF  46: 8100FFFF  47: FFFFFFFF  48: FFFFFFFF  49: FFFFFFFF
+  So on the FZ-10 the pad word is at index 46 of the input buffer, as in Opera (8000FFFF at rest); button A is bit 24 of that word.
+
+ARM CRC SUIVI (ARM CRC tracking) (slow mode, default start at family 12):
+  C0 E7EBC6D4 003C0168   (family 12 MUL, family 13 MULS; the characters ENT after them are left over from the word LENT (slow) of the menu)
+  stops at CAT 14 RUN 0 (family 14 = LDR/STR, first run).
+  Opera gave E7EBC6D4 5F6D097E for the same two families: MUL is the same, MULS differs (flags after a multiply).
+
+REG SCAN MANUEL (manual register scan): reading MADAM 300 restarts the console (status line LECTURE (read) MADAM 300).
+  Values seen before it: MADAM 2BC = 00000010, MADAM 274 = 0000FFFF.
+  MADAM map: 0300 = MMU registers.

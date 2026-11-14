@@ -1,0 +1,72 @@
+values: {'D': (47, 47), 'E': (44, 20)}
+=== D
+16b W1 H240 noACE              core   10432  fz10   11696  ratio 0.892
+16b W2 H240 noACE              core   11648  fz10   12336  ratio 0.944
+16b W3 H240 noACE              core   17712  fz10   13072  ratio 1.355
+16b W4 H240 noACE              core   18352  fz10   13712  ratio 1.338
+16b W5 H240 noACE              core    4688  fz10    3504  ratio 1.338
+16b W6 H240 noACE              core    4848  fz10    3680  ratio 1.317
+16b W7 H240 noACE              core    5024  fz10    3952  ratio 1.271
+16b W8 H240 noACE              core    5168  fz10    4000  ratio 1.292
+16b W10 H240 noACE             core    5472  fz10    5136  ratio 1.065
+16b W12 H240 noACE             core    7280  fz10    6544  ratio 1.112
+16b W14 H240 noACE             core    7520  fz10    6736  ratio 1.116
+16b W16 H240 noACE             core    7968  fz10    7232  ratio 1.102
+16b W20 H240 noACE             core   10384  fz10   10240  ratio 1.014
+16b W24 H240 noACE             core   11056  fz10   10880  ratio 1.016
+16b W32 H240 noACE             core   13776  fz10   13984  ratio 0.985
+16b W1 H240 ACE                core    8192  fz10    8784  ratio 0.933
+16b W2 H240 ACE                core    9392  fz10    9696  ratio 0.969
+16b W3 H240 ACE                core   11968  fz10   10288  ratio 1.163
+16b W4 H240 ACE                core   12640  fz10   10752  ratio 1.176
+16b W5 H240 ACE                core    3248  fz10    2688  ratio 1.208
+16b W6 H240 ACE                core    3408  fz10    2784  ratio 1.224
+16b W7 H240 ACE                core    3632  fz10    2864  ratio 1.268
+16b W8 H240 ACE                core    3824  fz10    2976  ratio 1.285
+16b W10 H240 ACE               core    4064  fz10    4416  ratio 0.920
+16b W12 H240 ACE               core    5456  fz10    4656  ratio 1.172
+16b W14 H240 ACE               core    5792  fz10    4816  ratio 1.203
+16b W16 H240 ACE               core    6320  fz10    5008  ratio 1.262
+16b W20 H240 ACE               core    8416  fz10    6832  ratio 1.232
+16b W24 H240 ACE               core    9152  fz10    7184  ratio 1.274
+16b W32 H240 ACE               core   11616  fz10   10176  ratio 1.142
+320 x H1 ACE                   core    1968  fz10    2240  ratio 0.879
+320 x H2 ACE                   core    3424  fz10    2928  ratio 1.169
+320 x H3 ACE                   core    5280  fz10    4960  ratio 1.065
+320 x H4 ACE                   core    1760  fz10    1520  ratio 1.158
+320 x H8 ACE                   core    3392  fz10    3008  ratio 1.128
+320 x H16 ACE                  core    6832  fz10    5840  ratio 1.170
+320 x H60 ACE                  core    3200  fz10    2800  ratio 1.143
+320 x H240 ACE                 core   13104  fz10   11440  ratio 1.145
+packed lit n=1 ACE             core   11824  fz10   10320  ratio 1.146
+packed lit n=8 ACE             core    8544  fz10    7552  ratio 1.131
+packed lit n=64 ACE            core    7936  fz10    6976  ratio 1.138
+packed rep n=1 ACE             core   11792  fz10   10176  ratio 1.159
+packed rep n=8 ACE             core    4752  fz10    4416  ratio 1.076
+packed rep n=64 ACE            core    3792  fz10    3712  ratio 1.022
+packed transp n=1 ACE          core    3344  fz10    4928  ratio 0.679
+packed transp n=8 ACE          core    1984  fz10    2560  ratio 0.775
+packed transp n=64 ACE         core    1808  fz10    2224  ratio 0.813
+mean ratio 1.115; within 15%: 23 of 47
+=== E
+blend W8 H240 noACE            core    6336  fz10    6608  ratio 0.959
+blend W16 H240 noACE           core   10864  fz10   12928  ratio 0.840
+blend W32 H240 noACE           core   18880  fz10   24864  ratio 0.759
+blend W64 H240 noACE           core    4384  fz10    5888  ratio 0.745
+blend W128 H240 noACE          core    8864  fz10   12256  ratio 0.723
+blend W320 H240 noACE          core   20672  fz10   29824  ratio 0.693
+blend W8 H240 ACE              core    5296  fz10    4560  ratio 1.161
+blend W16 H240 ACE             core    9296  fz10    8464  ratio 1.098
+blend W32 H240 ACE             core   16272  fz10   15584  ratio 1.044
+blend W64 H240 ACE             core    3792  fz10    3616  ratio 1.049
+blend W128 H240 ACE            core    7360  fz10    7216  ratio 1.020
+blend W320 H240 ACE            core   18224  fz10   17744  ratio 1.027
+blend 320 x H8 noACE           core    5456  fz10    7792  ratio 0.700
+blend 320 x H60 noACE          core    5088  fz10    7296  ratio 0.697
+blend 320 x H240 noACE         core   20672  fz10   29840  ratio 0.693
+blend 320 x H8 ACE             core    4784  fz10    4672  ratio 1.024
+blend 320 x H60 ACE            core    4480  fz10    4368  ratio 1.026
+blend 320 x H240 ACE           core   18224  fz10   17776  ratio 1.025
+fill blend 16 x 16             core  235200  fz10 1034320  ratio 0.227  (invalid on the FZ-10)
+fill blend 16 x 64             core  276064  fz10 1034336  ratio 0.267  (invalid on the FZ-10)
+mean ratio 0.905; within 15%: 9 of 18

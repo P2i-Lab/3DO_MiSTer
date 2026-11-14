@@ -1,0 +1,58 @@
+P2I BENCH 3.3 CELS LARGEURS 3/3 (cel widths) - FZ-10 (photo 05-cels-largeurs-3.jpg). Microseconds, median of 9 draws of k identical 16-bit unpacked cels; all 86 values are multiples of 16.
+
+H0    560    736   1104   1888   3408
+H1   3040   5984    592    784   1216
+H2   2080   1024   3376   6688    720
+H3    944   1488    720   1232   4064
+H4   8544    864   1328    640   1104
+H5   2048   7296   3616   1248    624
+H6   1056   1952   3696   3408   6848
+H7    576    656    880   1376   2528
+H8   2368   4608    592    672    960
+H9   1632    832   2656   5280    720
+HA    880   1328    608    992   3056
+HB   6000    848   1040    512    832
+HC   1472   5040   2560   1264    480
+HD    784   1392   2576   2432   4736
+HE  12496   3952   4816   6896   8512
+HF  10720  11728  13808   7856   2800
+HG   3440   4832   5456   6944   7632
+HH   9504
+
+Read at higher zoom: H7[4] 2528, HE[4] 8512 (the first digit is an 8, and 9512 is not a multiple of 16).
+
+Order (src/bench/sweep.c, group_widths page 2): W = 2 4 8 16 32 by H = 1 2 4 8 16 60 120 without ACE (35 values), with ACE (35); then W = 4 8 .. 32, H = 240, rows contiguous in memory, without ACE (8), with ACE (8). k = 128 cels when W x H < 64, 32 below 1024, 8 below 8192.
+
+without ACE: time of one cel in us, W across, H down
+               2        4        8       16       32
+H   1       4.38     4.62     5.62     6.75     9.75
+H   2       5.75     6.12     7.38    10.38    19.50
+H   4       8.62     9.50    11.62    20.00    33.00
+H   8      14.75    16.25    22.50    34.50    61.00
+H  16      26.62    32.00    38.50    64.00   115.50
+H  60      95.00   105.50   127.00   228.00   426.00
+H 120     187.00   209.00   267.00   452.00   856.00
+with ACE: time of one cel in us, W across, H down
+               2        4        8       16       32
+H   1       4.50     4.62     5.62     6.62     9.88
+H   2       5.12     5.25     6.88     8.12    15.00
+H   4       6.88     7.50    10.38    16.00    24.50
+H   8      10.75    12.75    19.00    26.00    43.50
+H  16      19.75    26.00    31.00    46.00    80.50
+H  60      74.00    83.00    95.50   157.50   304.00
+H 120     144.00   165.00   187.50   320.00   592.00
+rows contiguous against rows 160 words apart (page 1/3), H = 240, us for the list of k cels:
+  W  noACE contiguous spaced  gain   ACE contiguous spaced  gain
+  4        12496    13712   8.9%         7856    10784  27.2%
+  8         3952     4000   1.2%         2800     2976   5.9%
+ 12         4816     6496  25.9%         3440     4640  25.9%
+ 16         6896     7232   4.6%         4832     5120   5.6%
+ 20         8512    10240  16.9%         5456     6768  19.4%
+ 24        10720    10864   1.3%         6944     7360   5.7%
+ 28        11728    13312  11.9%         7632     9392  18.7%
+ 32        13808    13968   1.1%         9504    10176   6.6%
+
+Reading:
+- A cel of one row takes the same time with and without ACE (4.4 / 4.5 us at W = 2, 9.75 / 9.9 us at W = 32): one row is one engine.
+- Time of a cel: about 3 us + H x the time per row of the width (page 1/3).
+- Rows contiguous in memory: 1 to 6 % saved at W = 8, 16, 24, 32 (a whole number of groups of four words), 9 to 27 % at W = 4, 12, 20, 28: when a row ends inside a group of four words, the rest of the group serves the next row only if the rows are contiguous.

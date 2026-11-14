@@ -1,0 +1,7 @@
+# Real MiSTer, core 3DO-test1109d, P2i Bench 3.0 disc, HORLOGES 60 S (clocks), photo 15-horloges.jpg
+TEMPS  60174448 US  (TEMPS = time)
+VBL    3600
+TRAMES 2653692  (TRAMES = frames)
+TICKS  14422
+PAS US 16  (PAS = step)
+# VBL 16715,12 us, i.e. 59,826 Hz (console 59,9406). Audio 44100,0 Hz (console 43960,4). 737,14 frames per VBL (console 733,40).

@@ -1,0 +1,16 @@
+P2I BENCH 3.3 ARM CRC ALIGNE (ARM CRC, aligned) - FZ-10 (photo 10-arm-crc-aligne.jpg). CRC32 of the final registers, flags and memory of random programs (src/bench/arm.c, group_arm_aligned), each family in its own thread.
+
+R0 E5195FA8 011B6BEF      LDR/STR word aligned (150 runs)   LDRB/STRB (150 runs)
+R1 C4DACF11 00A01D06      LDM (150 runs)                    STM (150 runs)
+R2 1FAD1598 CCFE1ABA      SWP (150 runs)                    MRS/MSR (1000 runs)
+R3 EE219326               MIX: data processing, MUL/MULS, MRS/MSR (1000 runs)
+
+Opera on the same image:
+R0 E5195FA8 011B6BEF
+R1 C4DACF11 00A01D06
+R2 1FAD1598 CCFE1ABA
+R3 469F96CC
+
+Reading:
+- No family stopped: the stops of discs 3.0 to 3.2 came from the word accesses that are not aligned.
+- Six families out of seven equal Opera. Only MIX differs, and the model (scratchpad mes/arm_mix.py) gives exactly both values: EE219326 with the flag C rule of MULS (p07-09), 469F96CC when MULS keeps C as Opera does.

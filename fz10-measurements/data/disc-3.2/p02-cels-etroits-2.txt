@@ -1,0 +1,25 @@
+P2I BENCH 3.2 CELS ACE ETROITS (narrow ACE cels) 2/2 - FZ-10 (photo 02-cels-etroits-2.jpg). Microseconds, all multiples of 16.
+
+E0   6624  12912  24800   5920
+E1  12256  29808   4608   8416
+E2  15536   3648   7184  17776
+E3   7792   7280  29808   4592
+E4   4336  17952   2448   2352
+E5   8400   2400   9776   4336
+E6  12160   5904  22208   5568
+E7   5536   5424   5424   4080
+E8   4080   4080   4080   2656
+E9   2672   2672   2656   6960
+EA   5904   5168   3328   5344
+
+Order (src/bench/sweep.c page3b):
+ 0-5   blend W x 240, no ACE, W = 8 16 32 64 128 320
+ 6-11  the same with ACE
+12-14 blend 320 x H, no ACE, H = 8 60 240
+15-17 the same with ACE
+18-26 fill blends (1 pixel stretched, list with absolute pointers since 3.2): 16 x 16, 16 x 64, 16 x 240, 64 x 16, 64 x 64, 64 x 240, 320 x 16, 320 x 64, 320 x 240
+27-30 off-screen 320 x 240 ACE: right, left, down, up
+31-34 off-screen 64 x 64 x 8, no ACE
+35-38 the same with ACE
+39-43 6-bit ACE, transparency 0 % 25 % 50 % 100 % 50 % blocks
+The fill values were invalid on disc 3.1 (about 1034000: next pointers were relative).

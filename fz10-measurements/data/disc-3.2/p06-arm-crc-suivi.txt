@@ -1,0 +1,13 @@
+P2I BENCH 3.2 ARM CRC SUIVI (ARM CRC tracking) - FZ-10 (photo 06-arm-crc-suivi.jpg). Flags NZCV after muls r4,r5,r6 with r6 = 1 << k, k = 0..31 (one hexadecimal digit per k).
+
+FA 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA   flags in 0, r5 = 7FFFFFFF
+FB 3BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB   flags in C V, r5 = 7FFFFFFF
+FC 80000000000000000000000000000008   flags in 0, r5 = 80000001
+FD AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA   flags in C, r5 = FFFFFFFF
+C0 E7EBC6D4 003C0168                   families MUL and MULS
+CAT 14 RUN 0                           stops there (see p05-arm-pas-a-pas.txt)
+
+Opera: FA 08888888..., FB FC FD the same as the console; MUL E7EBC6D4, MULS 5F6D097E.
+
+Reading: the four rows fit "C is the carry out of the barrel shifter at the last step of the Booth multiplier (shift 0 keeps C)", but that rule does not give the CRC of the family MULS (52497F13 against 003C0168), nor do 32 variants of it (scratchpad mes/arm_muls.py, arm_muls2.py): the rule for general multipliers is not found.
+The order of evaluation of the bench's generator is left to right (the model gives the CRC of the family MUL, and Opera's for MULS when C is kept).

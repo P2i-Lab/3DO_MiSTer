@@ -1,0 +1,43 @@
+P2I BENCH 3.5 CARTE CPU (CPU map) - FZ-10 (photo 01-carte-cpu.jpg, 2026-11-12, disc 3.5 = make.bat 09:28, SHA1 1241936e)
+Read from the photo; next to it the simulated core mes18 (run s72cm, same image).
+
+                         FZ-10        core mes18
+CHAMPS                   59           59           (CHAMPS: fields)
+PERIODE (us)             16683        16682        (PERIODE: period)
+APPEL (us, one clock     18           16           (APPEL: call)
+  reading, shortest)
+ECARTS                   246          254          (ECARTS: gaps)
+PERDU/CHAMP (us)         894          909          (PERDU/CHAMP: lost/field)
+SAUTS                    48           41           (SAUTS: jumps)
+REVEIL LIGNE             14           14           (REVEIL LIGNE: wake-up line)
+
+US PERDUS/CHAMP PAR 16 LIGNES APRES REVEIL (us lost per field, by sixteen lines after wake-up)
+  lines   FZ-10  core
+    0      50     52
+   16     642    649
+   32       0      4
+   48       5      1
+   64       3      2
+   80       6      3
+   96       0      7
+  112       7      2
+  128       6      4
+  144       3      4
+  160       4      3
+  176       4      1
+  192       3      5
+  208       6      3
+  224       3      4
+  240       0      7
+  256     151    150
+
+GROUPES LIGNES (line groups) (lines after the wake-up, mean us per gap, number of gaps)
+  FZ-10:   8- 13   48  60     25- 26  630  60     257-261  148  61
+  core:    0-  9   48  62     20- 24  628  61     256-261  148  60
+
+Reading: the three recurring losses have the right length on the core (48, 630, 148 us), but the first two come earlier:
+- the 630 us one (control port transfer handler + the system task it wakes, found in the sim on 2026-11-11) at lines 20-24
+  after the wake-up on the core (counter 34-38), 25-26 on the FZ-10 (counter 39-40): this is the strip-40 lag of VCNT IMAGE
+  (disc 3.4: first white line 34 on the core, 25 on the console);
+- the 48 us one at lines 0-9 on the core, 8-13 on the FZ-10;
+- one clock reading (usec_now) costs 18 us on the console, 16 us on the core.

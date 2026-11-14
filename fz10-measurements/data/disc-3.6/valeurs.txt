@@ -1,0 +1,553 @@
+Disc 3.6 on the FZ-10 (13 November 2026), values read from the photos. Times in microseconds.
+Disc image: SHA1 cddbc915b8a26ea5286e6c53bf505fc4869e455c (make.bat 20:54, English texts), burned on 13/11 at 22:17.
+
+== b01 ALL 3.6 B page 1: P2I BENCH 3.6 FRAME PHASE (photo b01-frame-phase.jpg)
+SYNC SPREAD 1248  >64:10 JUMPS:1
+Grid F, 4 values per row: one list drawn 0, 1, 2 .. 15 ms after the wake-up that follows a VBL, median of 5.
+  F0-F3 16 bits 320x48, F4-F7 16 bits 320x120, F8-FB 16 bits 320x200, FC-FF the 6-bit picture of 2.3 VITESSE.
+F0   3824   3840   3216   3216
+F1   3216   3200   3216   3216
+F2   3216   3184   3216   3184
+F3   3216   3200   3360   4000
+F4   8448   8464   7824   7824
+F5   7824   7824   7824   7824
+F6   7824   7936   7968   8608
+F7   7824   7824   7824   7824
+F8  13552  13616  12960  12960
+F9  13072  13104  13744  12960
+FA  12960  12944  12960  12960
+FB  12944  12960  13760  13760
+FC  10704  10752  10112  10112
+FD  10080  10096  10096  10080
+FE  10096  10096  10880  10864
+FF  10864  10864  10128  10096
+
+== b02 ALL 3.6 B page 2: P2I BENCH 3.6 CELS SHEARED (photo b02-cels-sheared.jpg)
+SYNC SPREAD 992  >64:19 JUMPS:0
+Grid C, 5 values per row, 8 cels of 64x64, median of 9, each draw right after a VBL.
+  0-59 shift of each row (VDX) 0, 1/16, 1/8, 1/4, 1/2, 3/4, 1, 1.5, 2, 3 pixels: 16 bits (0-19), 8 bits coded (20-39),
+       6 bits coded (40-59), each shift without then with ACE
+  60-73 16 bits in perspective HDDX -16384 -8192 -4096 -2048 2048 4096 8192, without then with ACE
+  74-79 16 bits HDDX -8192 with HDDY 2048, 4096, 8192, without then with ACE
+  80-83 8 bits coded HDDX -8192 then 8192, without then with ACE
+  (CC 2nd value read as 4576 on the enlargement)
+C0   7472   5360   7520   5456   7520
+C1   5408   7504   5472   7488   5488
+C2   7520   5472   7520   5472   8112
+C3   5856   8832   5792   8832   5808
+C4   5888   4432   5872   4432   5872
+C5   4432   5888   4432   5904   4432
+C6   5856   4464   5872   4448   7296
+C7   4816   8752   5168   8736   5168
+C8   5408   4000   5408   3968   5440
+C9   3984   5408   3984   5408   3968
+CA   5408   3984   5440   3968   7088
+CB   4528   8656   5008   8656   5040
+CC   6224   4576   6816   5024   7152
+CD   5200   7296   5344   7696   5536
+CE   7888   5616   8336   5904   7216
+CF   5664   7632   6048   8592   6688
+CG   5040   3840   6912   4816
+
+== b03 ALL 3.6 B page 3: P2I BENCH 3.6 CELS ROTATIONS (photos b03-cels-rotations.jpg blurred, b03-cels-rotations-2.jpg sharp, same run)
+SYNC SPREAD 944  >64:24 JUMPS:0
+Grid R, 5 values per row: 8 cels of 64x64 centred, rotated by 0 2 5 10 20 30 45 60 90 degrees, each angle without then with ACE.
+  0-53 8 bits coded at scale 0.71 (0-17), 1 (18-35), 1.41 (36-53); 54-71 16 bits at scale 1.
+  Read on the 2nd photo, doubtful digits enlarged and compared with the unambiguous 6s and 8s of the same photo (R7 3rd value 6656), all multiples of 16.
+R0   4304   3392   4304   3664   4352
+R1   3616   4304   3536   4384   3808
+R2   4464   4048   4576   4224   4704
+R3   4368   4816   4464   5888   4448
+R4   5856   4208   5952   4672   5920
+R5   4624   5920   4880   6064   5360
+R6   6448   5696   6384   6096   6720
+R7   6544   9344   6656   9648   7984
+R8  10240   8080  11024   7744  11680
+R9   7552  12112   7696  12128   7584
+RA  11984   8000   9456   8992   7504
+RB   5440   7488   5760   7584   5808
+RC   7584   6160   7648   6352   7728
+RD   6640   7968   7136   8064   7504
+RE   8208   7776
+
+== b04 ALL 3.6 B page 4: P2I BENCH 3.6 CELS ACE SCALES (photo b04-cels-ace-scales.jpg)
+SYNC SPREAD 1024  >64:25 JUMPS:0
+Grid M, 5 values per row: 8 cels of 64x64 centred.
+   0-32 scale 1 in X and 1.0 1.1 .. 2.0 in Y; for each Y: 16 bits with ACE, 8 bits coded with ACE, 16 bits without ACE
+  33-57 16 bits with ACE, X 0.5 1 1.41 2 3 (outer loop) by Y 0.5 1 1.41 2 3 (inner loop)
+  58-82 the same without ACE
+  Read by the tester on the screen: M0 and M4 5th value, M6 M7 M8 M9 MB MC MD 4th and 5th values.
+M0   5472   4416   7488   7728   6096
+M1   8032   8240   6672   8464   8544
+M2   6976   8928   9008   7392   9344
+M3   9456   7904   9856   9952   8416
+M4  10384  10048   8528  10816  10320
+M5   8816  11216  10592   9104  11680
+M6  10256   8784  12192   4480   4656
+M7   6576   6896   9040   5008   5392
+M8   9152  10176  13856   5424   6288
+M9  10400  11408  15968   5904   7632
+MA  12064  13456  18144   6976   9216
+MB  15232  16720  23344   5424   6112
+MC   6976   8224  10784   6064   7504
+MD   9520  12176  17520   6688   8688
+ME  10752  13616  21456   7680  10528
+MF  12976  16320  26144   9120  13584
+MG  17248  22800  34784
+
+== b05 ALL 3.6 B page 5: P2I BENCH 3.6 NARROW ACE CELS 2 (photos b05-narrow-ace-cels-2.jpg and -b.jpg, same run)
+SYNC SPREAD 1088  >64:25 JUMPS:0
+Grid T, 5 values per row, cels of 240 rows (several copies when they are small, k_for).
+   0-39 16 bits with ACE, widths 8 9 10 12 16 17 20 24 32 33 (inner loop), source 0, 1, 2 then 3 words after a
+        multiple of 4 words (outer loop)
+  40-49 16 bits without ACE, same widths, source on a multiple of 4 words
+  50-65 8 bits coded with ACE, widths 16 20 24 32 36 40 48 52, source on a multiple of 4 words then 1 word after
+  66-71 16 bits, rows contiguous in memory, widths 8 16 32, without then with ACE
+T0   3584   4688   5008   5264   5616
+T1   6480   7280   7760   9984  10624
+T2   3568   4720   5024   5248   5584
+T3   6464   7296   7712  10016  10672
+T4   3584   4688   4992   5248   5600
+T5   6384   7232   7616   9776  10560
+T6   3584   4704   5040   5264   5600
+T7   6464   7296   7616   9728  10544
+T8   4608   5584   5744   7024   7696
+T9   8672  10080  10720  13824  14768
+TA   5600   6384   6672   8640   1200
+TB   1216   1488   1584   5600   6384
+TC   6688   8656   1184   1200   1488
+TD   1584   4480   7520  13680   3408
+TE   5408   9456
+
+== b06 ALL 3.6 B page 6: P2I BENCH 3.6 CELS FADES BLENDS (photos b06-cels-fades-blends.jpg and -b.jpg, same run)
+SYNC SPREAD 1456  >64:18 JUMPS:0
+Grid G, 5 values per row.
+   0-27 the 1-pixel fill of 2.3 VITESSE stretched to 16x16, 32x32, 64x64, 128x128, 320x240, 320x8, 8x240 (outer loop),
+        with PIXC 1F00 (solid), 1F81 (half blend), 1F80 (addition), 9F00 (screen pixel written back)
+  28-41 16 bits, 8 cels of 64x64 centred, half blend at scale 0.5 0.71 1 1.41 2 2.5 3, without then with ACE
+  42-45 8 bits coded, half blend at scale 1 then 2, without then with ACE
+  46-49 16 bits, addition (1F80) at scale 1 then 2, without then with ACE
+G0    896   3040   3040   3040    816
+G1   2992   3008   2976   3536   9744
+G2   9760   9760   1504   5232   5248
+G3   5232   7296  22720  22720  22688
+G4   2496   6400   6416   6432   1456
+G5   4704   4704   4704   6496   5504
+G6   8592   6336  13008   8240  21552
+G7  21104  38128  29712  58976  48608
+G8  86336  69968  11680   7088  36528
+G9  28304  12992   8176  38064  29792
+
+== b07 ALL 3.6 B page 7: P2I BENCH 3.6 CELS OFF SCREEN (photos b07-cels-off-screen.jpg and -b.jpg, same run)
+SYNC SPREAD 1024  >64:10 JUMPS:0
+Grid Z, 5 values per row: 2 copies of a 16-bit cel of 128x128, each position without then with ACE.
+   0-53 scale 0.5 (0-17), 1 (18-35), 1.41 (36-53): centre, then out of the screen on the right by 1/4, 1/2, 3/4, entirely,
+        then at the bottom by 1/4, 1/2, 3/4, entirely
+  54-61 scale 1: out on the left by 1/2, entirely, then at the top by 1/2, entirely
+  62-63 scale 1: far out on the right (x = 600)
+  64-69 8 bits coded 128x128 at scale 1: centre, out on the right by 1/2, entirely
+Z0   5200   4384   5088   4272   4848
+Z1   4016   4624   3600   4416   3104
+Z2   5024   4096   4800   3776   4608
+Z3   3472   4416   3104   7408   5328
+Z4   6768   4656   5952   4128   5168
+Z5   3584   4416   3136   6656   4800
+Z6   5888   4208   5152   3632   4416
+Z7   3120  10560  10096   9904   8512
+Z8   9200   7024   8528   5728   7888
+Z9   4384   9856   8688   9200   7200
+ZA   8544   5776   7904   4384   5840
+ZB   4128   4416   3104   5936   4256
+ZC   4416   3120   4416   3136   5632
+ZD   4224   4736   3136   3728   1632
+
+== b08 ALL 3.6 B page 8: P2I BENCH 3.6 CELS FINE TRANSP (photos b08-cels-fine-transp.jpg and -b.jpg, same run)
+SYNC SPREAD 976  >64:12 JUMPS:0
+Grid P, 5 values per row: the layouts of CELS TRANSPARENTS without holes, by 8, and all transparent (outer
+loop, in the format), at scale 0.5 0.6 0.71 0.85 1.2 1.41 2 (from 1.2 up the cel is cut to fill the screen),
+each without then with ACE: 0-41 16 bits, 42-83 6 bits coded.
+P0  10864   9040  11648   9392  12624
+P1   9744  14224  10336  13936  13280
+P2  12128  11552   9632   7808  10048
+P3   7840  10464   7952  10960   8080
+P4  11824   8304  11872   9520  10576
+P5   8048   8240   5584   8880   6032
+P6   8880   6032   8864   6016   8880
+P7   6016   8944   5280   8944   4896
+P8   7040   3888   6112   4672   6800
+P9   5168   7632   5712   8976   6384
+PA  10496   9808   9840   9040   8240
+PB   6688   5488   4048   5920   4288
+PC   6416   4576   7312   5136   8976
+PD   6608   9072   6160   7728   5088
+PE   4896   3056   5040   3088   5248
+PF   3088   6048   3456   8176   4464
+PG   8400   4592   7040   3888
+
+== b09 ALL 3.6 B page 9: P2I BENCH 3.6 SCENE BANDS 1/2 (photos b09-scene-bands-1.jpg and -b.jpg, same run)
+Grid I: check codes (hash) of the wizard scene, 12 bands of 20 lines (I0 = lines 0-19 .. IB = 220-239) x thirds,
+after the first cels that differ (list A cel 7, list B cel 5), 6 per row. Read from the photo; "*" = different from the simulated
+core 1113 (s80sband); the starred codes and I9 4th were read again on the screen by the tester (I9 4th = 4BEF = core).
+I0 3B50 F9AE EB8A 8067 8606 25F0
+I1 0AF1 A469 3FC8 45D1 8A37 3021
+I2 585C FB5E CEEE E509 D54B C830
+I3 C554 73D0 84AE 7B23 080C 0F2A*
+I4 B5FA 94E7 3AF3 428A BDFD EACF
+I5 774F 9AAB 8EB3 D172 657D 43FA
+I6 6446 74C2 0377 9947 2CD4 90DB
+I7 5895 5E1E FAA3 24AF 6EF1 6057
+I8 59D3 B2C9 C6A2 6647 55AF* 11FE
+I9 F05E 3E17* C2FC 4BEF 1578* EE2E
+IA E161 BB99* B8EC EBCE D197* 77E2
+IB C163 5101 C44B E719 A95F F870
+
+== b10 ALL 3.6 B page 10: P2I BENCH 3.6 SCENE BANDS 2/2 (photo b10-scene-bands-2.jpg), end of ALL 3.6 B
+Grid O, 7 codes per row: CRC of the screen after an addition over known pixels.
+   0-7  a 16-bit square of 64x64 at (128, 88) holding one value 0000 0001 8000 8001 4210 4211 7FFF FFFF, then the addition cel
+        of the scene (60x60, 16 bits, PIXC 1F001F80) over it at scale 1
+   8-15 the same, the addition at its scale in list A (0.5 x 0.53)
+  16-23 the same with the medallion (50x70, 8 bits, same PIXC) at scale 1
+  24-26 the wizard alone; the wizard then the 5th addition of list A at its place; the wizard then the 3rd medallion of
+        list B at its place
+  "*" = different from the simulated core 1113 (core 163B F731), read again on the screen by the tester; Opera gives 599F A95A.
+O0 8FFB 0B0F 8FFB 0B0F 5144 D5B0 10C5
+O1 10C5 3A54 BEA0 3A54 BEA0 E4EB 601F
+O2 10C5 10C5 7EB6 FA42 7EB6 FA42 AA84
+O3 FB88 10C5 10C5 B975 599F* E061*
+
+== a01 ALL 3.6 A page 1: P2I BENCH 3.6 CELS CLIPS (photos a01-cels-clips.jpg and -b.jpg, same run)
+SYNC SPREAD 1584  >64:28 JUMPS:0
+Grid K of disc 3.3 (CELS COUPES), re-measured with each draw right after a VBL. Reading checked case by case against the
+simulated core (FZ-10/core ratios all between 0.91 and 1.04, no jump).
+K0   7456   7120  10848  10336  13120
+K1  11168  13072  11328  13184  11344
+K2   8336   7936  12592  10112  12592
+K3  10112  12592  10128  12192  11584
+K4  14800  12720  19280  14768  23888
+K5  17088  20656  10416  20672  10400
+K6  20672  10384  20672  10416   5312
+K7   3856   9728   6864   7760   5408
+K8   7760   5472   8080   5712   9088
+K9   6352   9088   6432   9104   6368
+KA  15136  10912  17168  12096  12544
+KB  10432  11456   9568  11392   9504
+KC  11376   8672  11408   8656  23888
+KD  17072  13120  11168  12176  11680
+KE  12208  11744  12176  11680
+
+== a02 ALL 3.6 A page 2: P2I BENCH 3.6 CELS SCALE XY (photo a02-cels-scale-xy.jpg)
+SYNC SPREAD 1280  >64:17 JUMPS:0
+Grid Y of disc 3.3, re-measured with each draw right after a VBL. 4 values per row. Y7-Y9 4th value read again on the screen.
+Y0   5696   6096   6656   8688
+Y1  10496  13600   3936   4656
+Y2   4896   6304   7648   9200
+Y3   5392   6096   6672   9488
+Y4  12176  17520   4816   5008
+Y5   5248   9168  10256  13856
+Y6   7680   8224   6896   7664
+Y7   5920   6912   5872   6384
+Y8   6496  38016  86368   5488
+Y9  29632  69952   3632   5904
+YA  14528   3152   4432  11904
+YB   5712   6752   8320   9312
+YC   9856  11552  13104  25184
+YD   4688   5136   8000   9008
+YE   9408  11008  12272  21056
+
+== a03 ALL 3.6 A page 3: P2I BENCH 3.6 CELS WIDTHS 1/3 (photo a03-cels-widths-1.jpg, tilted: the right-hand column is one row higher)
+SYNC SPREAD 960  >64:24 JUMPS:1
+Grid L of disc 3.3, re-measured with each draw right after a VBL. LF 5th value 1420864 = the measurement at the clock jump
+(JUMPS:1), of no value as a draw time. L6 4th, LA 4th, LB 3rd, LC 3rd, LF 5th confirmed on the screen.
+L0  11568  12176  12912  13552   4128
+L1   4288   4464   4624   5616   5776
+L2   6864   7024   7200   7344   7488
+L3   7680   8656   8848   9920  10096
+L4  10240  10416  10576  10736  11744
+L5  11920  13008  13152  13328  13488
+L6  13664  13856   2688   2768   3056
+L7   3136   3520   3904   4672   5472
+L8   6224   6992   8512  10048  11584
+L9   8656   9712  10176  10752   3312
+LA   3408   3488   3584   4688   5024
+LB   5184   5248   5328   5408   5488
+LC   5584   6432   6880   7264   7296
+LD   7376   7456   7552   7728   8496
+LE   8800   9280   9312   9376   9456
+LF   9552  10032   1424   1504 1420864
+LG   2384   2656   2944   3424   3968
+LH   4544   5072   6160   7232   8304
+
+== a04 ALL 3.6 A page 4: P2I BENCH 3.6 CELS WIDTHS 2/3 (photo a04-cels-widths-2.jpg, tilted)
+SYNC SPREAD 1568  >64:26 JUMPS:0
+Grid N of disc 3.3, re-measured with each draw right after a VBL. N3 5th, N5 5th, N9 4th, NA 4th, NC 3rd, ND 3rd read on the screen.
+N0  13616   4608   5296   6784   8368
+N1   8992   9648  11120   1584   1680
+N2   2384   2592   2800   2864   2944
+N3   3136   3328   3392   3472   3680
+N4   3888   3968   4048   4224   4432
+N5   4512   4608   4800   4976   5056
+N6   5120   5312  10784   3552   4368
+N7   5616   6416   6656   7264   8640
+N8   1200   1200   1296   1504   1616
+N9   1616   2304   2464   2608   2624
+NA   2752   2864   3008   3008   3152
+NB   3264   3376   3360   3488   3648
+NC   3776   3728   3888   4032   4144
+ND   4976   5952   7600   9328  10304
+NE   1392   1600   2464   2592   2704
+NF   2928   4880   3344   4128   4672
+NG   6016   6944   7584    992   1184
+NH   1344   1376   1456   1600   3552
+
+== a05 ALL 3.6 A page 5: P2I BENCH 3.6 CELS WIDTHS 3/3 (photos a05-cels-widths-3.jpg and -b.jpg, same run)
+SYNC SPREAD 976  >64:5 JUMPS:1
+Grid H of disc 3.3, re-measured with each draw right after a VBL. Right-hand column HD-HG read on the 1st photo (reflection on
+the 2nd), consistent with the core within a few percent.
+H0    544    720   1104   2480   4016
+H1   3632   6496    576    768   1200
+H2   2688   1008   3984   7168    736
+H3    960   1472    704   1216   4672
+H4   8528    832   1312    624   1088
+H5   2656   7744   4224   1232    608
+H6   1072   2560   4288   4016   7312
+H7    560    640    896   1392   3152
+H8   2976   5200    576    672    944
+H9   1632    848   3264   5728    704
+HA    864   1296    592    992   3632
+HB   6512    832   1024    496    816
+HC   1456   5664   3184   1232    464
+HD    752   1360   3168   2992   5328
+HE  12336   4464   5424   7520   8480
+HF  10576  11568  13680   8320   3408
+HG   4048   5408   6064   7408   8080
+HH   9488
+
+== a06 ALL 3.6 A page 6: P2I BENCH 3.6 CELS TRANSPARENT (photos a06-cels-transparent.jpg and -b.jpg, same run)
+SYNC SPREAD 912  >64:9 JUMPS:0
+Grid Q of disc 3.3, re-measured with each draw right after a VBL. 4 values per row.
+Q0  10672   7440  16144  11360
+Q1   8944   5840  12880   9264
+Q2   9088   5952  12864   9232
+Q3   9088   5936  12896   9312
+Q4   8432   5968  12832   8448
+Q5   8416   5296  12848   8448
+Q6   8432   5232  12672   8448
+Q7   7312   4848  11280   7696
+Q8   9616   6576  14512  10128
+Q9   8896   5888  12928   9360
+QA   7104   3952   8864   6032
+QB   8880   7104  12496  12208
+QC   8016   5360  10688   9984
+QD   6112   4672   8224   6688
+QE   5504   4032   7728   5072
+QF   4896   3040   7056   3904
+
+== a07 ALL 3.6 A page 7: P2I BENCH 3.6 CELS SWEEP 1/2 (photo a07-cels-sweep-1.jpg, slightly blurred and tilted)
+SYNC SPREAD 1072  >64:8 JUMPS:0
+Grid A of disc 3.0 (CELS BALAYAGE 1/2), re-measured with each draw right after a VBL. A0 4th (1034992, no jump reported: all the measurements of the case around 1,03 s), A3 2nd, A7 1st and 2nd, AF 5th confirmed on the screen.
+A0  16160  11376  10880 1034992  16144
+A1  16144  10720   7280   6672   7296
+A2   1312    816  11568  12176  12896
+A3  13552   4624   7680  13824   3904
+A4   6992   8512  12336  16144   2832
+A5   4896   6960   2816   4864   8976
+A6   2800   4848   8448  16128   9712
+A7  13248  14096   4384   5984   9168
+A8   2576   4192   8896   1280   2928
+A9   2784   8864   2832   4912   6960
+AA   2816  11568  12176  12896   7872
+AB   8480   9584  10704  11792  11792
+AC  16144  15104  12848  11792  11328
+AD  10960  10880  10704  15104  11264
+AE   9408   8336   7872   7632   7600
+AF  10256   8688   6368   5600   5216
+AG   5008   4928  10672   9648   8720
+AH   7136   8416
+
+== a08 ALL 3.6 A page 8: P2I BENCH 3.6 CELS SWEEP 2/2 (photos a08-cels-sweep-2.jpg and -b.jpg, same run)
+SYNC SPREAD 1984  >64:10 JUMPS:0
+Grid B of disc 3.0 (CELS BALAYAGE 2/2), re-measured with each draw right after a VBL. B0 3rd 1035008 = the console
+watchdog (like A0 4th), no draw time.
+B0    528   1168 1035008  34768    432
+B1    512    256    576    656    784
+B2    752  12512  12544  12512  12512
+B3   8864   8896   8864   8880   8864
+B4   8864   8864   8880  12544   8896
+B5   8864  12512   8864   8880  11200
+B6  12848  14480  14432  13280  11888
+B7  10432   9824  10672  12512  14336
+B8  15184  14544  13696  13312  11280
+B9  10848   9632   4688   4688   4896
+BA   4944   4624  16160  16128  29696
+BB  29664  16144  29680  29648  16144
+BC   7328  22688  22688  22720  16128
+BD  16128   6256   8512   8496  16128
+BE  16144  11408    128    160    240
+BF  16624  16624  16624
+
+== a09 ALL 3.6 A page 9: P2I BENCH 3.6 NARROW ACE CELS 1/2 (photos a09-narrow-ace-cels-1.jpg and -b.jpg, same run)
+SYNC SPREAD 1008  >64:13 JUMPS:0
+Grid D of disc 3.1 (page 1 of CELS ACE ETROITS), re-measured with each draw right after a VBL. 4 values per row. DB 1st read on the screen.
+D0  11568  12176  12896  13552
+D1   4128   4288   4448   4640
+D2   5776   7024   7360   7696
+D3  10096  10704  13824   8688
+D4   9712  10192  10752   3328
+D5   3408   3456   3568   5024
+D6   5264   5408   5600   7296
+D7   7728  10016   2848   3520
+D8   5584   1488   3552   6368
+D9   3376  11376  10192   8016
+DA   7280  10160   4944   4304
+DB   5520   3184   2848
+
+== a10 ALL 3.6 A page 10: P2I BENCH 3.6 NARROW ACE CELS 2/2 (photos a10-narrow-ace-cels-2.jpg and -b.jpg, same run)
+SYNC SPREAD 1008  >64:19 JUMPS:0
+Grid E of disc 3.1 (page 2 of CELS ACE ETROITS), re-measured with each draw right after a VBL. 4 values per row.
+E0   7088  12752  24768   6496
+E1  12144  29680   5120   8528
+E2  15472   4272   7632  17872
+E3   8256   7744  29664   5184
+E4   4912  17808   3024   2944
+E5   9024   3008   9728   4928
+E6  12064   6368  22688   6048
+E7   6048   6032   6016   4704
+E8   4688   4704   4720   3280
+E9   3280   3280   3264   7392
+EA   6464   5776   3952   5904
+
+== a11 ALL 3.6 A page 11: P2I BENCH 3.6 WIZARD SCENE (photos a11-wizard-scene.jpg and -b.jpg, same run)
+SYNC SPREAD 1520  >64:6 JUMPS:0
+Grid W of disc 3.1 (SCENE MAGICIEN), re-measured with each draw right after a VBL. Order (see v31/p05-scene-magicien.txt):
+  W0 list A (9 cels), background A, 7 additive cels, wizard; W1 the same with ACE; W2 background in DRAM, without rotation (1.41),
+  scale 1, unpacked; W3 without USEAV, 7 additive solid, 7 additive without zero pixel, 7 additive scale 1;
+  W4 list B (5 cels), background B, 3 medallions, list B with ACE; W5 60 x (DrawCels + WaitVBL 1): list A fields, us; list B.
+  CRC A/B identical to discs 3.1, 3.3 and 3.5 (the rendering of the console is stable). The small cases (additive cels, wizard,
+  medallions) are ~0.6 ms above disc 3.1: each draw starts right after the VBL and pays for the system work
+  seen on FRAME PHASE (F0-F1).
+W0  31760  26640   4000   2640
+W1  21088  16992   3024   1312
+W2  26656  23888  17392  26576
+W3  26656   3776   4480   6416
+W4  29232  25488   2576  20528
+W5    120 2001888    120 2001904
+CRC A 90B45BE9 B 0E3CEBCB
+
+== a12 ALL 3.6 A page 12: P2I BENCH 3.6 CELS ACE POSITION (photos a12-cels-ace-position.jpg and -b.jpg, same run)
+SYNC SPREAD 1568  >64:31 JUMPS:0
+Grid J of disc 3.4 (CELS ACE POSITION), re-measured with each draw right after a VBL. 4 values per row.
+J0  15888  11120  10496   7296
+J1  15872  11088  10544   7360
+J2  15888  11152  10512   7328
+J3  15888  11088  10528   7312
+J4   2480   1296   1424    992
+J5   2512   1312   1408   1024
+J6  16144  11312  10704   7488
+J7  16144  11184  10672   7344
+J8  16144  11472  10672   7440
+J9  29216  17552  24992  13680
+JA  29168  17472  24992  13792
+JB   7472   5392   5440   3968
+JC   7504   5440   5408   3968
+JD   7520   5536   5408   3984
+JE   7504   5472   5440   3984
+JF   8832   5792   8640   5008
+JG   7504   5552   5408   3968
+  Compared with disc 3.4 (back-to-back draws, v34/p01): the medium draws (3-8 ms) take ~0.5-0.6 ms more (JB-JG, 4th
+  column of J0-J3); the very short ones (~1-1.4 ms: J4-J5 columns 2-4) nothing; J4-J5 1st column (~1.9 ms) +0.6 ms. The system
+  work after the VBL would therefore start ~1.4-1.9 ms after the wake-up (a shorter draw finishes before it).
+
+== a13 ALL 3.6 A page 13: P2I BENCH 3.6 CELS SOURCE (photos a13-cels-source.jpg and -b.jpg, same run)
+SYNC SPREAD 960  >64:16 JUMPS:0
+Grid U of disc 3.4 (CELS SOURCE), re-measured with each draw right after a VBL.
+U0  12176  13584   4288   4624   5744
+U1   7024   7344   7680   8880  10128
+U2  10448  10736  11904  13168  13488
+U3  13824  12176  13584   4288   4608
+U4   5744   6992   7328   7680   8864
+U5  10112  10448  10736  11920  13152
+U6  13488  13840  12176  13552   4288
+U7   4608   5744   7008   7328   7696
+U8   8816  10112  10416  10720  11888
+U9  13136  13456  13824  12176  13552
+UA   4288   4608   5760   7024   7360
+UB   7728   8848  10112  10416  10720
+UC  11920  13168  13504  13856  13568
+UD  17952   5680   7104   8288   9968
+UE  11408  12800  14704  15936  17200
+UF  19184  21200  22448  23520  24768
+UG   4608   7696  13792   3904  16144
+UH   3568   5616   9792   2960  11360
+
+== a14 ALL 3.6 A page 14: P2I BENCH 3.6 CELS ACE PACKETS 1/2 (photos a14-cels-ace-packets-1.jpg and -b.jpg, same run)
+SYNC SPREAD 1088  >64:20 JUMPS:0
+Grid V of disc 3.4 (CELS PAQUETS ACE 1/2), re-measured with each draw right after a VBL.
+V0  10176   8784   8352   8064   7552
+V1   7392   7248  10160   7776   5904
+V2   4992   4592   4304   4304   5520
+V3   4720   3536   3184   2992   2896
+V4   2848  12864   9136  12048   8320
+V5  11824   8208   9600   6240   8048
+V6   4720   7600   4336   6384   3568
+V7   5216   2992   4928   2832  17408
+V8  11824  16528  11248  16176  11184
+V9  10704   6736   8288   4992   7648
+VA   4352   6368   3552   5232   2992
+VB   4928   2848  10064   7120   6688
+VC  10096   4816   4256   5568   3312
+VD   2880  10720   6576  10736   6560
+VE  17264  13408   5296   3840   4560
+VF  10096  13248
+
+== a15 ALL 3.6 A page 15: P2I BENCH 3.6 CELS ACE PACKETS 2/2 (photos a15-cels-ace-packets-2.jpg and -b.jpg, same run)
+SYNC SPREAD 960  >64:14 JUMPS:0
+Grid V (2nd page) of disc 3.4 (CELS PAQUETS ACE 2/2), re-measured with each draw right after a VBL. 4 values per row.
+(cmp36.py puts the two V pages end to end: for the core, pass the two pages in the same order.)
+V0   6128   4688   7600   5728
+V1   9856   9008   8224   6688
+V2   5488   4048   6400   4576
+V3   9088   6176   7728   5072
+V4   4896   3040   5280   3104
+V5   8400   4592   7056   3904
+V6  10848   9072  12624   9776
+V7  12128  11552   9632   7888
+V8  10032   7840  10976   8080
+V9  10560   8032   8240   5568
+VA   8896   6032   8864   6032
+VB   8928   4896   7008   3888
+VC   6944   5232   7264   5328
+VD   7872   7280   8336   8000
+VE   8576   8256   9504   9056
+VF   7120   5104   7824   5680
+VG   7120   5408   8032   7744
+
+== a16 ALL 3.6 A page 16: P2I BENCH 3.6 CELS GENERAL PATH (photos a16-cels-general-path.jpg and -b.jpg, same run)
+SYNC SPREAD 960  >64:9 JUMPS:0
+Grid S of disc 3.5 (CELS CHEMIN GENERAL), re-measured with each draw right after a VBL.
+S0   3344   3664   4304   5168   5888
+S1   9344  14496   2816   3120   3392
+S2   3952   4448   8656  11888   3136
+S3   3536   3936   4704   5392   9024
+S4  14048   2496   2768   3104   3552
+S5   3984   8576  11408   5056   5744
+S6   6784   4048   4656   5088   6064
+S7   6464   4464   4576   5376   5632
+S8   4032   4224   6816   7632   5040
+S9   6016
+
+== a17 ALL 3.6 A page 17: P2I BENCH 3.6 CELS SCALE (photos a17-cels-scale.jpg and -b.jpg, same run), end of ALL 3.6 A
+SYNC SPREAD 1008  >64:18 JUMPS:0
+Grid X of disc 3.2 (CELS ECHELLE), re-measured with each draw right after a VBL. 4 values per row.
+Doubtful 6/8 digits (X0 3rd, X4 3rd, X7 3rd, X8 1st and 2nd) settled by the 2nd photo and by disc 3.2 (v32/p03, ~+0.5 ms everywhere):
+  (the 3rd number of X4 is 6640, disc 3.2: 6208; not 8640.)
+X0   4976   5424   6096   7504
+X1  10768  16320  34784   3744
+X2   4480   4832   5344  10368
+X3  13440  23344   7728   7984
+X4   8080   8128   6640   7120
+X5   7504   7472  12784  12720
+X6  12736  11264   8944   8832
+X7   9424  10096   6256   6320
+X8   6480   6384   5344   5360
+X9   5616   5616  12992  12432
+XA   8160  11568

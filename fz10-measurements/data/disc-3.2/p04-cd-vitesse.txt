@@ -1,0 +1,13 @@
+P2I BENCH 3.2 CD VITESSE (CD speed) - FZ-10 (photo 04-cd-vitesse.jpg). 64 consecutive blocks read one by one (src/bench/cd.c, group_cd4), then the state byte of the drive (Sub-Q reply).
+
+DEFAUT  427952 us  ETAT E3   (DEFAUT: default, ETAT: state)
+1X      855872 us  ETAT E1
+DEFAUT  429872 us  ETAT E3
+2X      430192 us  ETAT E3
+DEFAUT  430096 us  ETAT E3
+
+Reading:
+- Without a speed option a read is at double speed: 6.69 to 6.72 ms per block, as with the explicit 2X, also after a read at 1X.
+- 1X: 13.37 ms per block.
+- The state byte is E3 at double speed, E1 at single speed: bit 1 is the double speed.
+Opera for comparison: 549 ms, 977 ms, 549, 549, 549, same state bytes.

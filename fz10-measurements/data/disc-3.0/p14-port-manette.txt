@@ -1,0 +1,51 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, PORT MANETTE (control port), photo 14-port-manette.jpg
+# Controller only, gun unplugged. No reboot: the reads of MADAM 570 to 57C are not at fault in REG SCAN.
+# src/bench/hw.c, group_pbus. A: 8 words at the address read at 578. B: the 28 words before the address read at 570.
+# FIN (end): time and line at which bit 15 of MCTL falls back after a VBL; N: number of times out of 16.
+# The last column is cut off at the right edge of the screen (8th digit partly visible).
+
+570 001FD630  574 00000000
+578 001FD564  57C 003C7D2C
+MCTL 0001E000  INT 00000088
+A0 00000000 00000000 00000000 00000003
+A1 00000000 00000000 00000000 00000000
+B0 to B6: 28 words equal to 00000000
+FIN US 0  LIGNE 0  N 0  (LIGNE = line)
+
+# Opera, same disc image (run b32_panafz10, image 05880)
+570 001FD644  574 FFFFFFFC
+578 001FD574  57C 00000000
+MCTL 00016000  INT 00000089
+A0-A1, B0-B5: 00000000 (except the last word of B5: FFFFFFFF)
+B6 8100FFFF FFFFFFFF FFFFFFFF FFFFFFFF
+FIN US 496  LIGNE 28  N 16
+
+# Simulated core (1109c + signed zero, run s304, image 02970, previous disc image: 14 + 14 words displayed)
+570 001FC9F0  574 00000000
+578 001FC928  57C 00234C00
+MCTL 00016000  INT 00000081
+A0 00000000 00000000 00000003 00000000 ; everything else equal to 00000000
+FIN US 2528  LIGNE 53  N 16
+
+# Interpretation
+# - On the console, bit 15 of MCTL never falls back in this window (N = 0), as in REG TEMPS (register times).
+#   In Opera and in the core, it falls back every time (N = 16).
+# - 570 is 204 bytes after 578 on the console, 208 in Opera. With 574 = 0 (Opera: FFFFFFFC, transfer finished),
+#   the console would be one word from the end of a 52-word buffer. Hypothesis.
+# - The controller data are not where Opera puts them: the 28 words before 570 are zero on the console.
+#   15 words of the buffer (between views A and B) were not displayed.
+# - PISTOLET CIBLES (gun targets) looks for the gun identifier in this same area: on the console, this test probably cannot find it.
+# - INT: bits 3 and 7 on the console (88), bits 0, 3 and 7 in Opera (89), bits 0 and 7 in the core (81).
+
+# Next attempt, started without a full reboot after the ARM CRC and REG SCAN crashes (photo 14b-port-manette-erreur.jpg)
+SVC_MEM ERREUR D556F101  (ERREUR = error)
+# D556F101 = file system, severe, non-standard, error 1 (ER_Fs_NoFile, file not found): the register-read driver was not loaded.
+
+# Next attempt, after a full reboot of the console (photo 14c-port-manette-2.jpg)
+570 001FD630  574 00000000
+578 001FD564  57C 009E3F0C
+MCTL 0001E000  INT 00000080
+A0 00000000 00000000 00000000 00000003
+A1, B0 to B6: 00000000
+FIN US 0  LIGNE 0  N 0
+# Compared with the first attempt, only 57C (003C7D2C then 009E3F0C) and INT (88 then 80) change: the result is reproducible.

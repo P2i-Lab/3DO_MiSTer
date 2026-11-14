@@ -1,0 +1,21 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, ARM CRC, photo 09b-arm-crc.jpg
+# Screen shown just before the test stops (black screen). A line is displayed when its 4 values have been computed.
+# src/bench/arm.c, group_arm_crc: CRC of the registers and flags after random sequences, per family.
+# C0: immediate, groups 0 to 3. C1: shift by immediate LSL LSR ASR ROR. C2: shift by register LSL LSR ASR ROR.
+
+# FZ-10
+C0 104ECAA1 5A080538 5E4E5407 207D62FD
+C1 9A8A014E CFA0FAC1 697D8E30 0975B301
+C2 F9BEC612 394E9104 2E3AAEDD 6E1F44A7
+
+# Opera: the 12 values are identical to the console.
+# Simulated core (1109c + signed zero, run s303): identical except
+C2 F115505B 5A4663DF 2E3AAEDD 6E1F44A7
+
+# Cause of the discrepancy (verified, scratchpad devkit/armcrc_model.py)
+# A small model of the processor, with the same random sequences, reproduces the 12 console values.
+# With the core defect added to the model (carry of LSL/LSR by a register holding 64, 96 ... 224), it reproduces exactly
+# F115505B and 5A4663DF. The fix exists on another branch (527dfa1, ARM6_pkg.sv) and is in neither 1109c nor 1109d.
+
+# Where the test stops on the console: during the next line, so MUL, MULS, LDR or LDRB. Cause unknown.
+# Opera computes all the families (C3 to C5, then D0 and FA to FD). The simulated core had not finished within 1100 frames.

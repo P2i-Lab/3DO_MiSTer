@@ -1,0 +1,43 @@
+P2I BENCH 3.3 CELS ECHELLE XY (cel XY scale) - FZ-10 (photo 02-cels-echelle-xy.jpg). Microseconds, median of 9 draws of a list of 8 cels of 64 x 64, centred; all 60 values are multiples of 16.
+
+Y0   5072   5616   6080   8832
+Y1  10704  13744   3344   4032
+Y2   4304   5680   7168   9088
+Y3   4768   5600   6064   9536
+Y4  12336  17536   4208   4416
+Y5   4608   9168  10304  14016
+Y6   7216   7616   6448   7184
+Y7   5312   6416   5248   5888
+Y8   6032  37536  85776   4928
+Y9  29840  69392   3040   5344
+YA  14656   2528   3840  12016
+YB   5136   6288   7712   9296
+YC   9968  11696  13264  24688
+YD   4080   4512   7552   9008
+YE   9488  11136  12432  20432
+
+Read at higher zoom: Y2[3] 9088, YC[3] 24688, YD[3] 9008. Y7[3]: the three last digits are 888 and only 5888 is a multiple of 16 with the shape of the first digit (6888 is not).
+
+Order (src/bench/sweep.c, group_xy), 16-bit unless stated. Scale 1 values come from disc 3.2 (X grid).
+scale                     0.25    0.5   0.71  [1]    1.41     2      3
+X only, no ACE            5072   5616   6080  [7024]  8832  10704  13744
+X only, ACE               3344   4032   4304  [4832]  5680   7168   9088
+Y only, no ACE            4768   5600   6064  [7024]  9536  12336  17536
+Y only, ACE               4208   4416   4608  [4832]  9168  10304  14016
+X 2 Y .5, X .5 Y 2, X 3 Y .25, X .25 Y 3, no ACE:  7216  7616  6448  7184
+the same, ACE:                                     5312  6416  5248  5888
+half blend, scale 0.5, 2, 3, no ACE:               6032  37536  85776
+half blend, the same, ACE:                         4928  29840  69392
+8 bits coded, scale 0.5, 1, 2, no ACE:             3040   5344  14656
+8 bits coded, the same, ACE:                       2528   3840  12016
+same scale in X and Y     0.6   0.85   1.1    1.2    1.3    1.5    1.7    2.5
+no ACE                    5136  6288   7712   9296   9968  11696  13264  24688
+ACE                       4080  4512   7552   9008   9488  11136  12432  20432
+
+Reading:
+- ACE saves 19 to 31 % when the vertical scale is at most 1, and only 2 to 6 % as soon as it is above 1 (1.1 to 1.7). It comes back partly at 2 (17 %), 2.5 (17 %) and 3 (34 %).
+- The break depends on the vertical scale alone: Y only with ACE goes from 4832 at scale 1 to 9168 at 1.41 (x 1.9), X only with ACE goes smoothly from 4832 to 5680.
+- X 2 Y .5 with ACE is 5312 against 7216 without (26 % saved): a horizontal scale above 1 does not stop the two engines.
+- Without ACE the time grows regularly: X only 155 to 419 ns per source pixel, Y only 145 to 535 ns.
+- 8 bits coded against 16 bits: 1760, 1680, 1824 us less for 32768 source pixels at scale 0.5, 1, 2, about 52 ns per source pixel, whatever the scale.
+- Half blend adds 150 to 173 ns per screen pixel without ACE, 124 to 158 ns with ACE.

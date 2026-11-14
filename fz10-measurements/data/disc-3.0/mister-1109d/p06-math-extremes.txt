@@ -1,0 +1,23 @@
+# Real MiSTer, core 3DO-test1109d, P2i Bench 3.0 disc, MATH EXTREMES, photo 06-math-extremes.jpg
+N_NEG       A9C52248
+N_NEG_V0    0362B34C FD689E70 0055347E
+N_FRAC      82CE2AC0
+N_PETIT     566EDB49  (PETIT = small)
+N_GRAND     9D9F04C4  (GRAND = large)
+N_GRAND_V0  4EA9BAF4 4BAE3138 0055347E
+N_NEG_FR    E76357A2
+Z_PETIT     48ED2BDE
+Z_PETIT_V0  00000000 00000000 00000001
+Z_NUL_V0    00000000 00000000 00000000  (NUL = zero)
+Z_NUL_V1    00000000 00000000 00000000
+Z_NUL_V3    00000000 00000000 00000000
+V3XM33_MAX  4DDC165D
+V3_MAX_V0   7FFE0000 80010001 7FFF0001
+V4XM44_MAX  5764CAC6
+M33_MAX     B0DC5367
+DOT3_MAX    72A9ABC5
+ABS_MAX     299A5D1E
+# 15 lines out of 18 identical to the console. The 3 Z_NUL lines differ (console: FFFFFFFB 00000004 0, FFFFFFF5 00000006 0, 00000004 FFFFFFFB 0).
+# Cause: the DIVZ fix (2cf39bf) adds 1 to a negative quotient with a fractional part. With Z = 0, the divider probably returns a
+# quotient with all bits at 1 (-1): FFFFFFFF + 1 = 0, whereas the console keeps FFFFFFFF. The fix must not be applied when Z = 0. Analysis, not yet tried.
+# The simulation build of 9 November without DIVZ reproduced the console values on these 3 lines.

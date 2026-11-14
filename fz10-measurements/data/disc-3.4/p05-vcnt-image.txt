@@ -1,0 +1,43 @@
+P2I BENCH 3.4 VCNT IMAGE - FZ-10, 2026-11-11
+Photos 05a, 05b, 05c-vcnt-image.jpg (taken 14:39:34, 14:39:36, 14:39:37, so 120 and 60 frames apart), numbers page 05d-vcnt-chiffres.jpg.
+
+Five strips turn from red to white when the line counter reaches 40, 80, 120, 160, 200 (hw.c group_vimg: the counter is read through
+svc_mem until it is within 12 of the value, then the lines left are counted with the system timer, 63.556 us per line, and the strip is
+repainted white). The strip stays red above the line being scanned at that moment and white below it.
+Measured on the photos with vimg_measure.ps1 (scratchpad): edges of the strips and the red/white change at half height of the smoothed
+red and green channels, turned into picture lines with the 24 ruler marks (one every 10 lines) on both sides of each strip.
+
+First white line (picture line; line 0 = first line of the frame buffer):
+ strip          40      80     120     160     200
+ 05a         24.97   63.01  104.16  144.29  184.15
+ 05b         24.91   63.85  104.02  144.06  184.05
+ 05c         24.92   63.89  104.00  144.06  184.00
+ FZ-10          25      64     104     144     184     (strip 80: 63 on 05a)
+ core (sim)     34      64     104     144     184     (strip 40: 33 in 1 of 3 frames; b60v frames 2130, 2310, 2370, tear.py)
+White scan lines counted on the photos: 11, 12, 12, 12, 12 (05a: 13 for strip 80, and 11 for strip 200 with one missed at the bottom),
+as many as the first white line gives.
+Accuracy: the known edges of the strips (top -0.5, 31.5, 71.5, 111.5, 151.5; bottom 35.5, 75.5, 115.5, 155.5, 195.5) come out within
+0.3 line, except the top of strip 200 (149.5: the bright mark of line 150, 2 lines above the strip, merges with it in the smoothing).
+
+Numbers page: counter value read last before each strip (mean, min, max over the frames counted):
+                 FZ-10              core (sim, b60v frame 2730: disc build of 2026-11-10 21:31, same VCNT code)
+ BANDE  40    29   28   57           31   30   53   (BANDE: strip)
+ BANDE  80    70   68   77           70   69   75
+ BANDE 120   109  109  110          110  109  111
+ BANDE 160   149  149  150          150  149  155
+ BANDE 200   189  189  190          190  189  191
+ IMAGES     3487 (3600 frames: the test ran to its end)     403 (A pressed after about 420 frames)   (IMAGES: frames)
+ LECTURE US  587                     602   (LECTURE US: read, us)
+ CHRONO US    28                     (cut off on that build)   (CHRONO US: timer, us)
+
+Reading:
+- From strip 80 on, the first white line is the same on the console and on the core (64, 104, 144, 184, the counter value minus 16):
+  the line counter, the line period and the place of the picture in the frame agree.
+- Strip 40: white from line 25 on the console (counter minus 15, in line with the other strips), from line 34 on the core: the core
+  repaints this strip about 9 lines (about 570 us) late. The value read before it does not matter (29 against 31): the timed wait ends
+  at the same counter value on both. So every frame, between counter 30 and about 45, the core loses about 570 us of CPU time that the
+  console does not lose. The VBL itself is not late (wake line after WaitVBL 14 on the console, 13 on core 1109c, disc 2.3).
+  To find in the simulation: what runs at that time (an interrupt, the control port transfer, a task woken by the VBL...).
+- One counter read costs 587 us on the console and 602 us on the core (+2.6 %). It is measured once over 64 reads (2.25 frames), so the
+  difference may only be one frame-start event more or less in the window.
+- The three photos agree to within one line, so the change line is steady from frame to frame (strip 80: 63 on one photo, 64 on two).

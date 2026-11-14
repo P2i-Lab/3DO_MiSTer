@@ -1,0 +1,45 @@
+P2I BENCH 3.1 SCENE MAGICIEN (wizard scene) - FZ-10 (photo 05-scene-magicien.jpg)
+
+W0  31936  26624   3376   2016
+W1  20624  17008   2416   1328
+W2  26656  23408  17392  26592
+W3  26624   3168   3872   5920
+W4  29376  25024   1952  19920
+W5    121 2018544    120 2001888
+CRC A 90B45BE9 B 0E3CEBCB
+
+Order of the values (src/bench/scene.c), microseconds, median of 9 DrawCels:
+W0  list A (9 cels)   background A   7 additive cels   wizard
+W1  the same four with ACE set on every cel
+W2  background in DRAM   no rotation (scale 1.41)   scale 1   unpacked
+W3  no USEAV   7 additive solid   7 additive no zero pixels   7 additive scale 1
+W4  list B (5 cels)   background B   3 medallions   list B with ACE
+W5  60 x (DrawCels + WaitVBL 1) on list A: fields, us; on list B: fields, us
+
+Comparison (us)                     FZ-10   1109d ACE(sim)  no ACE(sim)     Opera    1109d/FZ-10
+list A                              31936   18976           15648           17232    0.59
+background A                        26624   14560           12352           15696    0.55
+7 additive                           3376    2816            2064             320    0.83
+wizard                               2016    1776            1392            1408    0.88
+list A, ACE set                     20624   15632           15648           17232    0.76
+background A, ACE set               17008   12368           12384           15712    0.73
+7 additive, ACE set                  2416    2048            2048             320    0.85
+wizard, ACE set                      1328    1408            1392            1408    1.06
+background in DRAM                  26656   14560           11920           15712    0.55
+background, no rotation (1.41)      23408   13520           12288            9040    0.58
+background, scale 1                 17392   14272           13584            8512    0.82
+background, unpacked                26592   14896           15440           15712    0.56
+background, no USEAV                26624   14624           12384           15712    0.55
+7 additive, solid                    3168    2704            1920             336    0.85
+7 additive, no zero pixels           3872    3024            2480             576    0.78
+7 additive, scale 1                  5920    4240            3600            1360    0.72
+list B                              29376   21120           16896           17776    0.72
+background B                        25024   17792           14400           15984    0.71
+3 medallions                         1952    1760            1280             592    0.90
+list B, ACE set                     19920   16896           16880           17776    0.85
+loop A: fields per 60 lists           121     120              60             120
+loop A: us                        2018544 2005728         1002832         2001920
+loop B: fields per 60 lists           120     120             120             120
+loop B: us                        2001888 2005744         2005744         2001936
+CRC A                            90B45BE9 546848AA        546848AA        DE4E289C
+CRC B                            0E3CEBCB D2C431CB        D2C431CB        8DA16B40

@@ -1,0 +1,25 @@
+P2I BENCH 3.5 CD FICHIERS (CD files) - FZ-10 (photo 03-cd-fichiers.jpg, 2026-11-12, inside TOUT 3.5 (all) after CHEMIN GENERAL (general path))
+Reads through the file system (cd.c group_cdfiles). MIN MED MAX in microseconds, or the total time.
+Core: simulated mes18, run s73cdf (page alone, same image); Opera b73_cdf for reference.
+
+                 FZ-10                        core mes18                   Opera
+OUVRIR        1104   1184  1326992         1104   1200  108320          912   976  15456   (OUVRIR: open)
+STATUT         144    144      736          144    160     752          128                (STATUT: status)
+L1 SUITE      6336   6688     7200         6128   6656    7152         9120                (SUITE: next)
+L1 ESPACE     4624   4884    81376         5696   5728   90256         9152                (ESPACE: spaced)
+L8 512K    1803360 us                   1777376 us                   1.75 s
+L32 512K   1807680 us                   1770160 us                   1.69 s
+L1 SAUT 2K   87216 146368   205066 (?)   125008 125040  125088         9120                (SAUT: jump)
+PAD 64000  50325044 0000FA00            50325044 0000FA00            same (right block)
+
+(OUVRIR: the 7-digit maximum runs into the median on the screen: 1184 then 1326992. Last digits of the SAUT 2K maximum hard to
+read: 205066 or 205056.)
+
+Reading:
+- sequential reads match (L1 SUITE median 6688 = one block at double speed, core 6656; 512 KB in 1.80 s, core 1.77-1.78 s, 1.5-2 %
+  fast);
+- the first file open after the long pause of the photos takes 1.33 s on the FZ-10, 0.11 s on the core: the drive (or the driver)
+  needs about 1.2 s to come back after an idle period; the core has no such state (to measure: idle time before it happens);
+- a block read one field after the previous one (from the drive's buffer) takes 4.6-4.9 ms on the FZ-10, 5.7 ms on the core;
+- jumps of 2000 blocks spread over 87-205 ms on the FZ-10 (median 146 ms: seek plus the wait for the disc to come round), while
+  the core gives a constant 125 ms (its seek table has no turn of the disc beyond 256 blocks).

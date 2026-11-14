@@ -1,0 +1,27 @@
+P2I BENCH 3.2 CELS ECHELLE (cel scale) - FZ-10 (photo 03-cels-echelle.jpg). Microseconds, median of 9 draws of a list of 8 cels of 64 x 64 16-bit pixels (src/bench/sweep.c, group_scale), all multiples of 16.
+
+X0   4336   4800   5488   7024
+X1  10912  16480  34800   3120
+X2   3872   4224   4832  10416
+X3  13600  22800   7264   7520
+X4   7616   7664   6208   6560
+X5   6992   7024  12960  12896
+X6  12864  11456   8352   8704
+X7   9408  10144   5728   5728
+X8   6000   5808   4768   4752
+X9   4976   5008  13136  12592
+XA   7584  11712
+
+Order:
+ 0- 6  no ACE, rotation 0, scale 0.25 0.5 0.71 1 1.41 2 3 :  4336  4800  5488  7024 10912 16480 34800
+ 7-13  ACE,    rotation 0, the same scales                 :  3120  3872  4224  4832 10416 13600 22800
+14-17  no ACE, scale 1,    rotation 30 45 60 94 degrees    :  7264  7520  7616  7664
+18-21  ACE,    scale 1                                     :  6208  6560  6992  7024
+22-25  no ACE, scale 1.41                                  : 12960 12896 12864 11456
+26-29  ACE,    scale 1.41                                  :  8352  8704  9408 10144
+30-33  no ACE, scale 0.71                                  :  5728  5728  6000  5808
+34-37  ACE,    scale 0.71                                  :  4768  4752  4976  5008
+38-39  no ACE, half blend, scale 1: rotation 0, rotation 45: 13136 12592
+40-41  ACE,    half blend, scale 1: rotation 0, rotation 45:  7584 11712
+
+Value X9[3] read at first as 17592 (not a multiple of 16): enlarged, it is 12592 (787 x 16).

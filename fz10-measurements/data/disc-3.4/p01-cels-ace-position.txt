@@ -1,0 +1,29 @@
+P2I BENCH 3.4 CELS ACE POSITION - FZ-10, 2026-11-11 (photo 01-cels-ace-position.jpg)
+Grid J, microseconds, four values per row: 16 bits without ACE, 16 bits with ACE, 6 bits without ACE, 6 bits with ACE.
+Values of J7-JA read on the second photo 01b-cels-ace-position-reprise.jpg (no reflection); identical where both photos are readable.
+
+J0  16064  11296  10560   6768     320 x 236 at y = 0
+J1  16048  11136  10640   6928     320 x 236 at y = 1
+J2  16048  11120  10544   6768     320 x 236 at y = 2
+J3  16048  11136  10672   6928     320 x 236 at y = 3
+J4   1888   1328   1424    992     8 cels of 32 x 32 at y = 0
+J5   1888   1360   1424   1056     8 cels of 32 x 32 at y = 1
+J6  16304  11328  10832   7104     320 x 240 mirrored in X
+J7  16304  11216  10832   6832     mirrored in Y
+J8  16304  11488  10832   6992     mirrored in X and Y
+J9  29296  17664  24384  13936     320 x 236 half blend at y = 0
+JA  29328  17632  25136  13952     320 x 236 half blend at y = 1
+JB   7008   4848   4800   3376     8 cels of 64 x 64, rows shifted by 0 pixel
+JC   7024   4928   4816   3376     shifted by 1/4 pixel per row
+JD   7040   4960   4800   3376     1/2
+JE   7056   4976   4816   3376     1
+JF   8832   5376   8800   4384     2
+JG   7056   5008   4800   3408     -1
+
+Reading:
+- The parity of the first line changes nothing in 16 bits (ACE 11120-11296) and adds 2 % in 6 bits (6768 even, 6928 odd): the two corner engines share the
+  write cycles whether or not their pixels fall in the same 32-bit word of the frame buffer.
+- Rows shifted from each other by up to 1 pixel per row cost the same as unshifted rows, with and without ACE; at 2 pixels per row the cel costs 26 %
+  more without ACE (16 bits) and 83 % more (6 bits), and ACE still gains 39 % (16 bits) and 50 % (6 bits).
+- Mirrored cels cost 1-5 % more than plain ones.
+- Half blend: ACE gains 40 % (16 bits) and 43-44 % (6 bits).

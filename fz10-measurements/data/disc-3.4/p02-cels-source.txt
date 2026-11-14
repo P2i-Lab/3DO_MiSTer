@@ -1,0 +1,52 @@
+P2I BENCH 3.4 CELS SOURCE - FZ-10, 2026-11-11 (photo 02-cels-source.jpg)
+Grid U, microseconds, five values per row, 16 bits:
+  values  0-63: widths 2, 4 .. 32 without ACE, source starting 0, 1, 2, then 3 words after a multiple of 4 words (16 values each)
+  values 64-79: widths 2, 4 .. 32 without ACE, half blend
+  values 80-89: source in VRAM, widths 8, 16, 32, 64, 320, without ACE then with ACE
+  (k_for: widths 2 and 4 are lists of 32 cels, widths 6-32 lists of 8 cels, 64 and 320: one cel; height 240)
+
+U0  12320  13712   3680   4000   5296
+U1   6496   7152   7104   8896  10144
+U2  10560  10880  11968  13328  13664
+U3  13984  12336  13728   3680   4000
+U4   5136   6416   6752   7200   8240
+U5  10144  10576  10864  12064  13312
+U6  13648  13968  12336  13728   3680
+U7   4000   5136   6416   6848   7200
+U8   8352  10128  10544  10752  12048
+U9  13296  13632  13968  12320  13712
+UA   3680   4000   5168   6544   6880
+UB   7248   8240  10144  10432  10752
+UC  12064  13312  13664  14000  13728
+UD  17984   5200   6656   7824   9968
+UE  11536  12864  14832  16096  17248
+UF  18592  20592  21824  23072  24752
+UG   4000   7248  13952   3280  16304
+UH   2976   4976   9808   2384  11504
+
+By width (columns: offset 0, 1, 2, 3 words; half blend; disc 3.3 grid L for comparison):
+ W2   12320  12336  12336  12320  13728   (L 12336)
+ W4   13712  13728  13728  13712  17984   (L 13712)
+ W6    3680   3680   3680   3680   5200   (L  3680)
+ W8    4000   4000   4000   4000   6656   (L  4000)
+ W10   5296   5136   5136   5168   7824   (L  5152)
+ W12   6496   6416   6416   6544   9968   (L  6496)
+ W14   7152   6752   6848   6880  11536   (L  6864)
+ W16   7104   7200   7200   7248  12864   (L  7232)
+ W18   8896   8240   8352   8240  14832   (L  8864)
+ W20  10144  10144  10128  10144  16096   (L 10240)
+ W22  10560  10576  10544  10432  17248   (L 10480)
+ W24  10880  10864  10752  10752  18592   (L 10864)
+ W26  11968  12064  12048  12064  20592   (L 12032)
+ W28  13328  13312  13296  13312  21824   (L 13312)
+ W30  13664  13648  13632  13664  23072   (L 13648)
+ W32  13984  13968  13968  14000  24752   (L 13968)
+Source in VRAM, without ACE: W8 4000, W16 7248, W32 13952, W64 3280, W320 16304 (DRAM: 4000, 7232, 13968, 3296, 16320)
+Source in VRAM, with ACE:    W8 2976, W16 4976, W32 9808,  W64 2384, W320 11504 (DRAM: 2976, 5120, 10176, 2384, 11456)
+
+Reading:
+- The steps of the time per row stay at the same widths whatever the alignment of the source (offsets 0-3 words): the fetch groups start at the row,
+  not at a 16-byte boundary. Offsets change the times by 8 % at most (W14, W18 at offset 0).
+- A source in VRAM costs the same as in DRAM (with ACE 0-4 % faster).
+- With a blend the drawing is slower than the reading, yet steps remain (W10-12 +2144, W16-18 +1968, W24-26 +2000 against about +1300 per 2 pixels):
+  the fetches are not hidden behind the slower drawing.

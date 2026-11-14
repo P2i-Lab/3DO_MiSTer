@@ -1,0 +1,50 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, REG TEMPS (register times), photo 11-reg-temps.jpg
+# 128 reads of each register (src/bench/hw.c, group_regtime).
+# Columns: AND of all reads, OR of all reads, last read, number of changes (127 at most).
+# M = MADAM, C = CLIO.
+
+# FZ-10
+M008 0001E000 0001E000 0001E000   0
+M00C 00178906 00178906 00178906   0
+M040 00000000 000007FF 000000E7 127
+M010 E2800001 E2800001 E2800001   0
+C024 C0050F0F C0050F0F C0050F0F   0
+C03C 00000000 FFFFFFFF DDAAF2F4 126
+C084 00000076 00000076 00000076   0
+C088 00000001 00000001 00000001   0
+C030 00000000 000007FF 000005A2 127
+C034 00000000 000009FF 00000038 127
+C040 00000088 00000088 00000088   0
+C060 00000002 00000002 00000002   0
+C100 00008000 0000BFFF 00009E2C 127
+C108 0000FCA4 0000FCA4 0000FCA4   0
+C118 00000000 000003FF 0000010D 127
+C130 0000E000 0000FFFF 0000E178 127
+
+# Simulated core (1109c + signed zero, run s304, image 01830)
+M008 00016000 0001E000 00016000   8
+M00C 00000000 00000000 00000000   0
+M040 00000000 00000000 00000000   0
+M010 00000000 00000000 00000000   0
+C024 00000000 00000000 00000000   0
+C03C 00000000 FFFFFFFF C28201D2 127
+C084 00000000 00000000 00000000   0
+C088 00000000 00000000 00000000   0
+C030 00000000 000007FF 0000034F 127
+C034 00000000 000009FF 00000076 127
+C040 00000081 00000081 00000081   0
+C060 00000000 00000000 00000000   0
+C100 00004000 00005FFF 00004809 127
+C108 0000FFE9 0000FFE9 0000FFE9   0
+C118 00000000 000003FF 000001EE 127
+C130 0000E000 0000FFFF 0000E401 127
+
+# Interpretation
+# - M008 (MCTL): on the console bit 15 is 1 in the 128 reads; in the core it changes 8 times (cleared by PLAYER_INT, MADAM.sv:242).
+#   On the console, if it falls back, it is for less than about 3 % of the time (0 reads out of 128).
+# - M040: counter of at least 11 bits on the console, changes on every read; the core always returns 0.
+# - M00C, C024, C084, C088, C060: constant on the console, 0 in the core (differences already seen with disc 2.3, these are not read flukes).
+# - M010: E2800001 constant, consistent with the value left on the bus (see disc 2.3).
+# - C040: 88 on the console (bits 7 and 3), 81 in the core (bits 7 and 0), constant over the 128 reads.
+# - C030, C034, C03C, C118, C130: same bits changing on the console and in the core.
+# - C100 / C108: system time timers; the values depend on the time elapsed since boot.

@@ -1,0 +1,34 @@
+Whole disc 3.6 (27 pages): FZ-10 (valeurs.txt) against the simulated core x17c (= test RBF 1114: 1113 + 24-bit pace counters
+for large blended quads + a cost for cels turned by 90 or 270 degrees with ACE).
+B pages: runs ga<page> (9 pages) and gcrot (CELS ROTATIONS); A pages: run x17c_all_a (sequence ALL 3.6 A). Ratio core/FZ-10, err = |ratio - 1|.
+Excluded cases: the measurements of more than 0,5 s (console watchdog, clock jump).
+A pages read: 17 titles, 17 done
+F: 64 cases  mean |err| 0.025  within 3% 53  within 10% 63  fast>3%  9  fast>10%  1  slow>10%  0  slow>25%  0
+C: 84 cases  mean |err| 0.200  within 3%  9  within 10% 32  fast>3%  5  fast>10%  0  slow>10% 52  slow>25% 26
+R: 72 cases  mean |err| 0.103  within 3% 12  within 10% 39  fast>3% 22  fast>10% 10  slow>10% 23  slow>25%  3
+M: 83 cases  mean |err| 0.073  within 3% 28  within 10% 59  fast>3%  6  fast>10%  0  slow>10% 24  slow>25%  0
+T: 72 cases  mean |err| 0.070  within 3% 27  within 10% 49  fast>3% 28  fast>10% 18  slow>10%  5  slow>25%  1
+G: 50 cases  mean |err| 0.052  within 3% 22  within 10% 47  fast>3% 14  fast>10%  0  slow>10%  3  slow>25%  2
+Z: 70 cases  mean |err| 0.049  within 3% 35  within 10% 63  fast>3%  8  fast>10%  0  slow>10%  7  slow>25%  1
+P: 84 cases  mean |err| 0.114  within 3% 22  within 10% 53  fast>3%  2  fast>10%  0  slow>10% 31  slow>25% 10
+K: 74 cases  mean |err| 0.034  within 3% 38  within 10% 72  fast>3%  1  fast>10%  0  slow>10%  2  slow>25%  0
+Y: 60 cases  mean |err| 0.079  within 3% 15  within 10% 43  fast>3%  5  fast>10%  0  slow>10% 17  slow>25%  0
+L: 84 cases  mean |err| 0.039  within 3% 54  within 10% 77  fast>3% 10  fast>10%  3  slow>10%  3  slow>25%  2
+N: 85 cases  mean |err| 0.055  within 3% 39  within 10% 74  fast>3% 39  fast>10%  8  slow>10%  3  slow>25%  3
+H: 84 cases  mean |err| 0.065  within 3% 32  within 10% 74  fast>3%  8  fast>10%  0  slow>10% 10  slow>25%  4
+Q: 64 cases  mean |err| 0.099  within 3% 15  within 10% 40  fast>3%  3  fast>10%  0  slow>10% 24  slow>25%  3
+A: 84 cases  mean |err| 0.035  within 3% 54  within 10% 77  fast>3%  8  fast>10%  2  slow>10%  5  slow>25%  0
+B: 77 cases  mean |err| 0.059  within 3% 27  within 10% 65  fast>3%  7  fast>10%  1  slow>10% 11  slow>25%  2
+D: 47 cases  mean |err| 0.056  within 3% 22  within 10% 41  fast>3%  5  fast>10%  1  slow>10%  5  slow>25%  1
+E: 44 cases  mean |err| 0.058  within 3% 19  within 10% 37  fast>3% 12  fast>10%  0  slow>10%  7  slow>25%  0
+W: 22 cases  mean |err| 0.040  within 3% 10  within 10% 21  fast>3%  4  fast>10%  0  slow>10%  1  slow>25%  0
+J: 68 cases  mean |err| 0.085  within 3% 33  within 10% 56  fast>3%  2  fast>10%  0  slow>10% 12  slow>25%  8
+U: 85 cases  mean |err| 0.057  within 3% 27  within 10% 74  fast>3%  0  fast>10%  0  slow>10% 11  slow>25%  5
+V: 145 cases  mean |err| 0.065  within 3% 66  within 10% 109  fast>3%  5  fast>10%  0  slow>10% 36  slow>25%  4
+S: 46 cases  mean |err| 0.092  within 3% 10  within 10% 30  fast>3%  2  fast>10%  0  slow>10% 16  slow>25%  3
+X: 42 cases  mean |err| 0.078  within 3% 10  within 10% 28  fast>3% 12  fast>10%  4  slow>10%  9  slow>25%  0
+ALL: 1690 cases  mean |err| 0.071  within 3% 679  within 10% 1323  fast>3% 217  fast>10% 48  slow>25% 78
+
+Case by case against core 1113 (comparaison-coeur-1113.txt):
+moved by more than 2 %: 23: B61 0.61->0.93  B62 0.61->0.93  B63 0.61->0.92  E20 0.68->0.97  E22 0.68->0.96  E23 0.69->0.96  E24 0.73->0.95  E25 0.69->0.95  E26 0.61->0.93  G9 0.68->0.95  G10 0.68->0.95  G11 0.68->0.95  G13 0.70->0.95  G14 0.70->0.95  G15 0.70->0.95  G17 0.61->0.93  G18 0.61->0.92  G19 0.61->0.93  G24 0.99->1.01  R17 0.87->1.15  R35 0.65->1.00  R53 0.75->1.01  R71 0.69->0.99
+violations (new < 0.97 and faster than base): 0

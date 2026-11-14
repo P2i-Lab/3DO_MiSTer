@@ -1,0 +1,60 @@
+P2I BENCH 3.5 RENDU DETAIL (render detail) 1/2 and 2/2 - FZ-10 (photos 04-rendu-detail-1.jpg, 05-rendu-detail-2.jpg, 2026-11-12, end of TOUT 3.5 (all))
+The hashes depend on the path (1-bit and 2-bit coded cels load only part of the PLUT): compare with runs on the same TOUT 3.5 path.
+Opera: b73_all (TOUT 3.5 path, same image). Core: s75all (TOUT 3.5 path, same image) still running; s72rd = page alone.
+
+RENDU DETAIL 1/2, grid D (pixc.c formats_detail): 1-bit coded, 2-bit coded, 8-bit uncoded, same data and draws as FORMATS:
+  0-11 by TLLSB 0-3; 12-83 by BGND/NOBLK x PXOR x POVER (24 per format); 84-107 by PIXC x PLUTA x MARIA (8 per format)
+
+FZ-10
+D0 E598 E291 4743 E598 9A79 172B 1516
+D1 9A79 010C 010C 2AC0 010C CF21 CF21
+D2 CF21 5431 5431 5431 CF21 CF21 CF21
+D3 5431 5431 5431 CF21 CF21 CF21 5431
+D4 5431 5431 CF21 CF21 CF21 5431 5431
+D5 5431 9E42 9E42 9E42 B4CD B4CD B4CD
+D6 9E42 9E42 9E42 B4CD B4CD B4CD 9E42
+D7 9E42 9E42 B4CD B4CD B4CD 9E42 9E42
+D8 9E42 B4CD B4CD B4CD 4D0B 4D0B 4D0B
+D9 AC92 AC92 AC92 11B5 11B5 11B5 52E8
+DA 52E8 52E8 4D0B 4D0B 4D0B AC92 AC92
+DB AC92 BDBB BDBB BDBB B68A B68A B68A
+DC B87B B87B 8C21 8C21 E086 E086 D844
+DD D844 D033 D033 CC33 CC33 1373 1373
+DE F29A F29A 3F14 3F14 3F14 3F14 9B91
+DF 9B91 9B91 9B91
+
+Opera (TOUT path) differs from the FZ-10 at:
+D1 9A79 8042 D0F5 D0F5 0975 CF21 CF21   (cases 8-11: 8-bit uncoded by TLLSB)
+D8 .... .... .... .... 00AD 00AD 00AD   and D9-DB all, DE from the 3rd value, DF (8-bit uncoded in the BGND/NOBLK x PXOR x POVER
+D9 D6FE D6FE D6FE 7167 7167 7167 D91E    cases, and the 8-bit uncoded PIXC x PLUTA x MARIA cases)
+DA D91E D91E 00AD 00AD 00AD D6FE D6FE
+DB D6FE FB43 FB43 FB43 3120 3120 3120
+DE F29A F29A 01D2 01D2 01D2 01D2 4215
+DF 4215 4215 4215
+D0, D2-D7, DC, DD are equal to the FZ-10 in Opera.
+
+RENDU DETAIL 2/2
+  grid K (scene.c): the wizard scene cel by cel, hash of the screen after each of the first k cels of list A (9), then list B (5);
+  CRC of both whole lists. grid P (pixc.c geometry_detail): group 12 of the random quads of FORMATS, hash after each of its 8 quads.
+
+          FZ-10                                    core s72rd (page alone)                  Opera (TOUT)
+K0  734F 75EA FE77 FAA0 0910 BE65 6B33     734F 75EA FE77 FAA0 0910 BE65 9BE7     7AEB 0208 68A5 04AB 586B BAC3 3D51
+K1  1B81 CB5D 6EAD 27D1 48DC A3F8 E5F7     C402 1CC2 6EAD 27D1 48DC A3F8 E30F     26B0 F6D2 DFC3 AD4F E4A9 1CC1 E6E1
+CRC A 90B45BE9 B 0E3CEBCB                  A 546848AA B D2C431CB                  A DE4E289C B 8DA16B40
+P0  D22A 9978 6311 C298 F499 A913 E193     the same                                 CB0A 67E5 AC6D 3D6E 2ED8 6AE1 1735
+P1  E3B0                                   E3B0                                     ABC5
+
+Reading:
+- CRC A/B equal the FZ-10's SCENE MAGICIEN (wizard scene) values of disc 3.3 (A 90B45BE9, B 0E3CEBCB): the console is consistent.
+- core (page alone): grid P all equal (the random quads now render as on the console); grid K: list A equal for cels 1-6,
+  differs from cel 7 on (hashes are cumulative); list B equal for cels 1-4, differs at cel 5. To be confirmed on the TOUT path
+  (s75all), since the page alone may start from another PLUT.
+
+TOUT 3.5 path on the simulated core (2026-11-12 evening; same image and same presses as the FZ-10 run, pages read on the screens):
+- s75all (core mes18, before NOBLK): page 1/2 differs from the FZ-10 at D1[1-4] (5196 5196 3D54 5196), D9[3-6] and DA[0-1]
+  (BDBB BDBB BDBB B68A / B68A B68A), DE[2-5] (9355): the 8-bit uncoded draws with BGND set, NOBLK clear and a solid write.
+- s76all (core nbR = the corrected core + NOBLK: a black result is written as 0x0400 when CCB NOBLK is clear, like the console):
+  all 108 values of page 1/2 equal the FZ-10.
+- page 2/2, both runs: K0 734F 75EA FE77 FAA0 0910 BE65 9BE7, K1 C402 1CC2 6EAD 27D1 xxxx A3F8 E30F (xxxx = 0989 on s75all,
+  6915 on s76all), CRC A 546848AA B D2C431CB, P0 and P1 equal to the FZ-10. As on the page alone, list A differs from cel 7 on
+  and list B at cel 5; list B cel 3 depends on the path (page alone 48DC = FZ-10).

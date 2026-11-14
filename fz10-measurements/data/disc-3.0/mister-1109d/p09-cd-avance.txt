@@ -1,0 +1,14 @@
+# Real MiSTer, core 3DO-test1109d, Main 1107c, P2i Bench 3.0 disc, CD AVANCE (CD steps), photo 09-cd-avance.jpg (same order as the console, p09).
+Z0 5968 5968 5968 5968 5968
+Z1 5968 5952 5968 5984 5968
+Z2 5984 5984 5968 5968 5968
+Z3 5200 5616 5440 4768 4704
+Z4 5968 8976 14976 26976 38960
+Z5 50976 6016 209536 203808 203936
+Z6 196512 206960
+B2048 9D2F38E8 5032504400003C21
+B2352 1F68923E 0346500150325044
+D2352 1F68923E 0346500150325044
+SUBQ  87 00 41 01 01 04 0D 1A 04 0B 1A E1
+# All times are multiples of 16. About 6 ms per request whatever the jump (console: 33 to 95 ms at 2X, 53 to 177 ms at 1X).
+# Requests of n blocks: 3 ms more per request than the simulation, 3 ms per block (console: 6,72 ms per block).

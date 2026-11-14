@@ -1,0 +1,49 @@
+P2I BENCH 3.1 - FZ-10 (photos 06-cd-sauts, 07-video-lignes, 08-limite-vram)
+
+CD SAUTS (CD jumps), grid Y, microseconds, median of the reads:
+Y0   6688  82048  95520  33584
+Y1  60464  87344  45584  84432
+Y2  93232 109952   6688  92880
+Y3 106368  33568  60464  87328
+Y4 114224  62800 118752  70944
+Y5   6704 102416 115856  33552
+Y6  60464  87360 114240 132816
+Y7  80768  65120  72048  65312
+Y8  58592  90272  73488 117392
+Y9  81104  74384  67648 108496
+YA  56016 130704  88976  82256
+YB  75552 124144 103104 133584
+YC 100384 116320 156784 183792
+YD 272624 302304   4880   9232
+YE   9120   4928  64880 118704
+YF  11440 154784
+
+Meaning (src/bench/cd.c, group_cd3), reads at double speed:
+Forward steps of 1 2 4 5 9 13 17 33 65 129 blocks from block 5000 (Y0-Y2[1]), 35000 (Y2[2]-Y4), 65000 (Y5-Y7[1]):
+   5000:  6688  82048  95520  33584  60464  87344  45584  84432  93232 109952
+  35000:  6688  92880 106368  33568  60464  87328 114224  62800 118752  70944
+  65000:  6704 102416 115856  33552  60464  87360 114240 132816  80768  65120
+Backward steps of 0 -1 -2 -8 -64 -1024 blocks from 14000 (Y7[2]-Y8), 40000 (Y9-YA[1]), 65000 (YA[2]-YB):
+  14000: 72048  65312  58592  90272  73488 117392
+  40000: 81104  74384  67648 108496  56016 130704
+  65000: 88976  82256  75552 124144 103104 133584
+Long forward jumps from block 2000 by 256 1024 4096 16384 32768 60000: 100384 116320 156784 183792 272624 302304
+Two seconds after a read, block n further on, n = 1 2 4 8 16 32: 4880 9232 9120 4928 64880 118704
+Next block after a change of speed: 1x then 2x: 11440; 2x then 1x: 154784
+
+Reading: T = 6688 us per block at 2x. A step of g blocks costs g*T + n*R, with n the integer (positive or negative) that gives the smallest value above a minimum L,
+and R the time of one rotation of the disc at that place: from the steps 2 and 4,
+  R(5000) = 68.7 ms, R(35000) = 79.6 ms, R(65000) = 89.1 ms; R^2 grows linearly with the block number (constant linear velocity): R^2 = 4452 + 0.0536 * block, in ms^2 (this CD-R).
+  The minimum L is below 33.5 ms for steps of 5 blocks and about 37 to 45 ms when the head must change track (17 blocks at 35000: 34 ms is refused, 65 blocks: 36.7 ms is refused).
+
+VIDEO LIGNES (video lines) (24000 reads of CLIO 030 and 034):
+HCNT MIN 0 MAX 1591
+TRAME 0 MIN 4 MAX 265 N 11995   (TRAME: field)
+TRAME 1 MIN 4 MAX 266 N 12005
+So 1592 clocks per line, 262 lines in one field and 263 in the other, line numbers starting at 4.
+
+LIMITE VRAM (VRAM limit):
+MSYS 00000029 MCTL 0001E000
+2FFFF8 FFFFFFF9
+2FFFFC FF0007FF
+The console restarts when the program reads 300000, right after this screen (status line EN COURS: LECTURES (running: reads)): a read beyond the end of the VRAM restarts it.

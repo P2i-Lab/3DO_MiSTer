@@ -1,0 +1,8 @@
+# Real MiSTer, core 3DO-test1109d, P2i Bench 3.0 disc, DSP, photo 10-dsp.jpg
+TIMESP 1BEC04CC 512 0 2000 7FFE
+MULT   4CC4F313  64 0 2000 7FFE
+ADD    6E39E955  64 0 7FFF 7FFF
+SUB    BC63982D  64 0 0000 0000
+MAX    22C8176B  64 0 4000 7FFF
+MIN    177F7C5E  64 0 4000 7FFF
+# The six CRCs are identical to the console and to Opera. Last column (cycles) cut off: first digit 4 for the first four lines, 5 for the last two.

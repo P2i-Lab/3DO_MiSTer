@@ -1,0 +1,27 @@
+P2I BENCH 3.2 PIXELS EN CLAIR (pixels in plain text) 5/5 - FZ-10 (photo 01-pixels-5.jpg). One character per pixel, base 32 (0-9, A-V). Groups of 8 for reading.
+
+Z0 00000011 00002233 00000011 44446677
+Z1 33333344 33335566 33333344 777799AA
+Z2 04432KC7 4VKB6VSF 8VVJAVVN CVVREVVV
+Z3 02211A63 2IA53QE7 4VI95VMB 6VQD7VUF
+Z4 00000011 00002233 00000011 44446677
+U0 00224466 88AACCEE GGIIKKMM OOQQSSUU
+U1 01234567 89ABCDEF GHIJKLMN OPQRSTUV
+U2 00224466 88AACCEE HHJJLLNN PPRRTTVV
+U3 10325476 98BADCFE HGJILKNM PORQTSVU
+TR 7FFF 0001 7FFF 7FFF
+
+Meaning (src/bench/pixc.c, pix5_page):
+Z0  AV bits 4:3 = 3 (PIXC 0x30), MF 8, SF 8, source 0, frame buffer x = 0..31
+Z1  the same with source 3
+Z2  source i = 0..31, frame buffer 0
+Z3  the same with MF 4
+Z4  as Z0 with SF 4
+U0-U3  16-bit pixels, blue = x, bit 0 of green = inverse of bit 0 of x, TLLSB 0..3, blue read back
+TR  one 16-bit pixel 0x0001 without BGND over 0x7FFF, TLLSB 0..3: 7FFF means not drawn
+
+Rules read from these rows:
+- AV bits 4:3 = 3: the term from the frame buffer is (x >> 1) & (x >> 2), bit by bit (24 gives 4). It does not depend on SF.
+- AV bits 4:3 = 3: the term from the source is i * MF / d with the divider d from the two low bits of the pixel: 0 = /16, 1 = /2, 2 = /4, 3 = /8, the same table as MS = PDC. SF is not used for it. Floor, clamp at 31.
+- TLLSB on 16-bit pixels: 0: blue bit 0 = 0; 1: blue bit 0 as it is; 2: blue bit 0 = blue bit 4; 3: blue bit 0 = green bit 0.
+- The transparency test comes after TLLSB: 0x0001 is transparent with TLLSB 0, 2 and 3 (blue bit 0 becomes 0), drawn with TLLSB 1. Opera draws it in all four cases.

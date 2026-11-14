@@ -1,0 +1,50 @@
+P2I BENCH 3.1 CELS ACE ETROITS (narrow ACE cels) - FZ-10 (photos 04a, 04b). Microseconds, median of 9 draws of k_for(w,h) cels.
+
+Page 1/2, grid D
+D0  11696  12336  13072  13712
+D1   3504   3680   3952   4000
+D2   5136   6544   6736   7232
+D3  10240  10880  13984   8784
+D4   9696  10288  10752   2688
+D5   2784   2864   2976   4416
+D6   4656   4816   5008   6832
+D7   7184  10176   2240   2928
+D8   4960   1520   3008   5840
+D9   2800  11440  10320   7552
+DA   6976  10176   4416   3712
+DB   4928   2560   2224
+
+Meaning (src/bench/sweep.c page3a):
+ 0-14  16-bit cels W x 240, no ACE, W = 1 2 3 4 5 6 7 8 10 12 14 16 20 24 32
+15-29  the same with ACE
+30-37  320 x H with ACE, H = 1 2 3 4 8 16 60 240
+38-46  packed rows with ACE: literal, repeated, transparent packets of 1, 8, 64 pixels
+
+Page 2/2, grid E
+E0   6608  12928  24864   5888
+E1  12256  29824   4560   8464
+E2  15584   3616   7216  17744
+E3   7792   7296  29840   4672
+E4   4368  17776 1034320 1034336
+E5 1034896 1034304 1034320   4336
+E6 1034352   5792  22224   5552
+E7   5584   5408   5424   4080
+E8   4080   4080   4080   2672
+E9   2672   2672   2656   6896
+EA   5872   5168   3328   5408
+
+Meaning (src/bench/sweep.c page3b):
+ 0-5   blends (PIXC_HALF) W x 240, no ACE, W = 8 16 32 64 128 320
+ 6-11  the same with ACE
+12-14 blends 320 x H, no ACE, H = 8 60 240
+15-17 the same with ACE
+18-26 blended fills, W = 16 64 320 by H = 16 64 240.
+      INVALID where the list has several cels (values near 1034000: positions 18 19 20 21 22 24):
+      the fill cel of the bench has a relative next pointer (flag NPABS clear, flags 0x57260030)
+      and the list was linked with absolute addresses, so the engine ran through memory until the
+      OS stopped it, about 1.03 s. Only the three lists of one cel are valid:
+      64 x 240 = 4336, 320 x 64 = 5792, 320 x 240 = 22224.
+27-30 320 x 240 with ACE, off screen at (400,0) (-400,0) (0,300) (0,-300)
+31-34 64 x 64 x 8 off screen, no ACE
+35-38 the same with ACE
+39-43 6-bit, with ACE: 0, 25, 50, 100 % of transparent pixels at random, 50 % in blocks of 8

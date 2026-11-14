@@ -1,0 +1,41 @@
+P2I BENCH 3.4 CELS PAQUETS ACE 2/2 (cel packets, ACE) - FZ-10, 2026-11-11 (photo 04-cels-paquets-ace-2.jpg)
+Grid V page 2, microseconds, four values per row. V1 first value read 9984 (the second digit is unclear, 9884 is not a multiple of 16).
+
+V0   5648   4080   7120   5200
+V1   9984   8416   8288   6112
+V2   4864   3424   5808   3984
+V3   9088   5632   7280   4512
+V4   4272   2448   4640   2496
+V5   7792   4144   6448   3280
+V6  10880   9056  12784   9888
+V7  12304  11584   9696   7360
+V8  10176   7360  11104   8224
+V9  10624   8016   7648   4944
+VA   8912   5392   9024   5568
+VB   9104   4272   6576   3264
+VC   6480   4624   6640   4736
+VD   7360   6800   8480   7600
+VE   8720   7648   9568   9120
+VF   6640   4512   7840   5104
+VG   6608   4768   7568   7248
+
+Layouts of CELS TRANSPARENTS (transparent cels) (none, 8:8, all transparent), 320 x 240 at scale 0.5 and 0.71, 226 x 169 at 1.41, 160 x 120 at 2 (the cel fills the
+screen), without ACE / with ACE:
+           scale 0.5     0.71          1.41          2
+ 6b none    5648/4080    7120/5200     9984/8416     8288/6112
+ 6b 8:8     4864/3424    5808/3984     9088/5632     7280/4512
+ 6b all     4272/2448    4640/2496     7792/4144     6448/3280
+ 16b none  10880/9056   12784/9888    12304/11584    9696/7360
+ 16b 8:8   10176/7360   11104/8224    10624/8016     7648/4944
+ 16b all    8912/5392    9024/5568     9104/4272     6576/3264
+
+8 cels of 64 x 64, 16 bits, centred, without ACE / with ACE:
+ same scale in X and Y: 0.9 6480/4624, 0.95 6640/4736, 1.05 7360/6800, 1.1 8480/7600, 1.15 8720/7648, 1.25 9568/9120
+ X only: 0.85 6640/4512, 1.1 7840/5104
+ Y only: 0.85 6608/4768, 1.1 7568/7248
+
+Reading:
+- ACE gains little when the vertical scale is between 1 and 2 and the pixels are opaque (16b none at 1.41: 6 %; Y only 1.1: 4 %; uniform 1.05-1.25:
+  5-10 %), and much on transparent pixels (16b all at 1.41: 53 %).
+- 16-bit opaque at 0.71 (12784) costs more than at 0.5 (10880) and as much as at 1.41 (12304 for half the source pixels).
+- Uniform 1.1 without ACE: 8480 here, 7712 on disc 3.3 (grid Y, same cel): 10 % apart, to keep in mind (the ACE values agree: 7600 / 7552).

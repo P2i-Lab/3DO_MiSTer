@@ -1,0 +1,35 @@
+P2I BENCH 3.4 PISTOLET CIBLES (gun targets) - FZ-10, 2026-11-11 (photo 08-pistolet-cibles-2.jpg)
+Gun 2 alone, chain console - gun 2 - pad, aimed carefully (same procedure as p07 with gun 1).
+
+          x    y   place   bytes                      counter  hits
+ T1      40   40    177    4D 80 25 5D 94 80 00 FF      76524   20
+ T2     160   40    177    4D 80 21 D5 15 80 00 FF      69288   21
+ T3     280   40    177    4D 80 23 44 D5 80 00 FF      72230   21
+ T4      40  120    177    4D 80 52 10 55 80 00 FF     168066   21
+ T5     160  120    177    4D 80 53 7F 56 80 00 FF     171002   22
+ T6     280  120    177    4D 80 53 09 94 80 00 FF     170060   20
+ T7      40  200    177    4D 80 7F 5D 57 80 00 FF     260842   23
+ T8     160  200    177    4D 80 84 84 D6 80 00 FF     271398   22
+ T9     280  200    177    4D 80 84 14 96 80 00 FF     270500   22
+ NON NUL (nonzero) 172: FF FF FF FF 4D 80 82 36
+Every row's bytes decode to the counter and count printed beside them.
+
+The gun counter runs at 20 MHz, in step with the picture (36 samples: p06 guns A and B, p07 gun 1, this page):
+- Taken modulo one line, the counters group by the column of the cross. The period that groups them best is 1271.09 counts per
+  line (searched 1200.00-1350.00 in steps of 0.01); 20 MHz x 63.556 us = 1271.11. Remainder per column, in counts:
+     x =  40:  gun 1  267  283  265   gun 2  259  282  269   2-gun A  260  290  268   2-gun B  199  258  265   (careful mean  271)
+     x = 160:  gun 1  664  652  655   gun 2  649  676  656   2-gun A  619  650  682   2-gun B  596  608  599   (careful mean  659)
+     x = 280:  gun 1 1047 1012 1058   gun 2 1049 1005 1029   2-gun A 1035 1029 1078   2-gun B 1023 1030  991   (careful mean 1033)
+  So counter = 1271.1 x line + about 144 + 3.18 x column. A 320-pixel line at 6.136 MHz would give 3.26 per pixel: the difference
+  is within the aim scatter (5 to 8 pixels).
+- At the same cross, gun 2 minus gun 1: +2534, -3828, +2544, +12710, +8922, +6348, +2546, +12712, +3784 = 2, -3, 2, 10, 7, 5, 2, 10, 3
+  lines of 1271, each within 30 counts.
+- Both guns have the same clock and the same place in the line. The slopes found before (1187, 1192, 1225, 1303 per line) came from
+  the vertical aim, which is the weaker one: the line index wanders by up to about 9 lines around its mean.
+- Line index (counter div 1271.09) minus the line of the cross: gun 1 18 17 14 / 2 7 8 / 3 3 9; gun 2 20 14 16 / 12 14 13 / 5 13 12.
+  If the gun latches on the first line it sees, about hits / 2 above its aim, the counter's line 0 is about 22-24 lines before
+  picture line 0, so near line counter 255 of the previous field (picture line 0 = counter 16 on the VCNT page). Rough: it rests on
+  the aim and on hits / 2.
+- The remainders do not depend on the run: the calibration button the tester pressed before the two-gun run left the time base and
+  its place in the line unchanged. To see what that button sends: PORT MANETTE DIRECT (direct control port) (live buffer), word 44 = 4D 80 b2 b3.
+- Gun 2 sees 20-23 lines, gun 1 25-29. The counter is even in all 36 samples.

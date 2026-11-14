@@ -1,0 +1,42 @@
+P2I BENCH 3.3 CELS TRANSPARENTS (transparent cels) - FZ-10 (photo 06-cels-transparents.jpg). Microseconds, median of 9 draws of one unpacked cel; all 64 values are multiples of 16 (Q4[3] is under a reflection: 7856, possibly 7888).
+
+Q0  10832   6992  16304  11344
+Q1   8960   5248  13040   9280
+Q2   9056   5296  13040   9280
+Q3   8592   5392  13040   9328
+Q4   7968   5472  12992   7856
+Q5   7808   4688  13008   7840
+Q6   7824   4624  12832   7968
+Q7   6704   4240  11312   7248
+Q8   9696   6128  14672  10144
+Q9   9056   5296  13088   9360
+QA   6672   3328   9040   5424
+QB   8896   6576  12672  12384
+QC   7552   4720  10704  10032
+QD   5648   4064   7760   6144
+QE   4880   3424   7280   4480
+QF   4288   2448   6544   3280
+
+Order (src/bench/sweep.c, group_holes), 320 x 240:
+row  layout of the transparent pixels        6 bits coded noACE, ACE      16 bits noACE, ACE
+Q0   none
+Q1   alternate 1:1
+Q2   2:2
+Q3   4:4
+Q4   8:8
+Q5   16:16
+Q6   32:32
+Q7   one opaque in 4
+Q8   one transparent in 4
+Q9   random half
+QA   all transparent
+QB   one row out of two transparent
+QC   one row out of four opaque
+QD-QF  6 bits, layouts none, 8:8, all transparent; columns: scale 0.5 noACE, ACE, scale 2 noACE, ACE (160 x 120 source at scale 2)
+
+Reading (ns per source pixel, 76800 pixels):
+- All opaque / all transparent: 6 bits no ACE 141 / 87, ACE 91 / 43; 16 bits no ACE 212 / 118, ACE 148 / 71.
+- 16 bits without ACE: the time is the sum of 212 ns per opaque and 118 ns per transparent pixel within 4 %, whatever the layout (half transparent: 13040 12992 13008 12832 against 12672 for the mean).
+- 6 bits without ACE: half transparent 1:1 to 4:4 is about the mean (+2 %), blocks of 8 or more are 9 to 11 % below it, and one opaque in four is as cheap as all transparent (6704 against 6672).
+- With ACE, whole rows alternately opaque and transparent cost much more than the mean: 6576 against 5160 (6 bits), 12384 against 8384 (16 bits): the two engines work on two rows at once and lose the gain.
+- The core spends 45 ns on a transparent 6-bit pixel without ACE (disc 3.0, TRANSP100 3472 against 6512 on the console).

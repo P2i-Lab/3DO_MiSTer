@@ -1,0 +1,30 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, SYSTEME (system), photo 13-systeme.jpg
+# KernelBase fields, then folios and devices (name, version.revision), in the order of the kernel lists.
+# The page was started just after the reboot caused by REG SCAN.
+
+CPUFLAG 000190E8  FLAGS 00000000
+TICKS N 00000004  D     0001F400
+TIMERS  00003F00  QUANT 00000000
+ITEMS   00000100  INT   0000002E
+MADAM   00000001  CLIO  00000001
+DRAMSET 00000000  VRAM  00000000
+VRAM0   00000000  VRAM1 00000000
+MEMEND  00300000  SWITCH 00000000
+PAGE D  00008000  V     00000800
+KERNEL 24.225  FILE 24.225
+OPERAMATH 24.225  GRAPHICS 24.225
+AUDIO 24.225
+RAM 24.225  CD-ROM 24.225
+TIMER 24.225  XBUS 24.225
+SPORT 24.225  FILESYSTEM 24.225
+FILESYSTEM 24.225  FILESYSTEM 24.225
+FILESYSTEM 24.225  CONTROLPORT 24.225
+
+# Simulated core (1109c + signed zero, run s304, image 02520)
+# The first nine lines and the folios are identical. Devices:
+# RAM 24.225, SVC_MEM_DEV 0.0, CD-ROM 24.225, TIMER 24.225, XBUS 24.225, SPORT 24.225,
+# FILESYSTEM 24.225 (3 times), CONTROLPORT 24.225
+
+# Interpretation
+# - SVC_MEM_DEV is the bench driver; in the simulated run, the REG pages had loaded it before this page.
+# - The console has 4 FILESYSTEM entries, the simulated core 3. Cause not established (the simulator's empty NVRAM is a lead, not verified).

@@ -1,0 +1,47 @@
+P2I BENCH 3.4 CELS PAQUETS ACE 1/2 (cel packets, ACE) - FZ-10, 2026-11-11 (photo 03-cels-paquets-ace-1.jpg)
+Grid V page 1, microseconds, five values per row, cels 320 x 240 unless said.
+
+V0  10256   8864   8544   7392   7072
+V1   6864   6752  10320   7312   5472
+V2   4480   4112   3696   3728   4928
+V3   4112   2944   2560   2368   2272
+V4   2224  13024   9024  12224   8240
+V5  11936   8240   9680   5968   7520
+V6   4144   7072   3712   5760   2944
+V7   4592   2368   4320   2208  17408
+V8  11952  16576  11408  16336  11344
+V9  10832   6592   8432   4400   7168
+VA   3744   5776   2944   4608   2368
+VB   4320   2224  10112   6672   6096
+VC  10240   4224   3648   4960   2688
+VD   2272  10752   6064  10784   5952
+VE  17328  13552   4656   3232   3936
+VF  10160  13376
+
+Packed 6 bits with ACE (packets of n pixels; without ACE from disc 3.0 grid A in brackets):
+ n          1      2      4      8     16     32     64
+ literal 10256   8864   8544   7392   7072   6864   6752   (15280 12992 11968 11488 11088 11008 10720)
+ repeat  10320   7312   5472   4480   4112   3696   3728   (15280 11344  9424  7712  7392  7136  7104)
+ transp.  4928   4112   2944   2560   2368   2272   2224   (10432  8864  5776  4976  4592  4400  4304)
+
+Packed 8 bits and 16 bits, without ACE / with ACE:
+          8 bits                          16 bits
+ n        4           16          64          4           16          64
+ literal  13024/9024  12224/8240  11936/8240  17408/11952 16576/11408 16336/11344
+ repeat    9680/5968   7520/4144   7072/3712  10832/6592   8432/4400   7168/3744
+ transp.   5760/2944   4592/2368   4320/2208   5776/2944   4608/2368   4320/2224
+
+ACE + LCE (ACE alone in brackets, from this page and from page J):
+ packed 6 bits literal n=1, 8, 64:  10112  6672  6096   (10256 7392 6752)
+ packed 6 bits repeat  n=1, 8, 64:  10240  4224  3648   (10320 4480 3728)
+ packed 6 bits transp. n=1, 8, 64:   4960  2688  2272   ( 4928 2560 2224)
+ 320 x 236 at y = 0, 16 bits / 6 bits: 10752 / 6064   (J0: 11296 / 6768)
+ 320 x 236 at y = 1, 16 bits / 6 bits: 10784 / 5952   (J1: 11136 / 6928)
+ half blend, 16 bits / 6 bits:         17328 / 13552  (J9: 17664 / 13936)
+ 8 x 64x64 rows shifted 1 px, 16 / 6:   4656 / 3232   (JE:  4976 / 3376)
+ 8 x 64x64 16 bits, scale 0.5, 1.41, 2: 3936  10160  13376
+
+Reading:
+- With ACE a transparent packed run costs half of the time without ACE whatever its length (n=1: 4928 against 10432; n=64: 2224 against 4304), and the
+  same in 6, 8 and 16 bits (transparent packets read no pixel data).
+- LCE makes opaque cels 3-14 % faster than ACE alone (the most in 6 bits, at y = 1: 5952 against 6928) and changes nothing for transparent runs.

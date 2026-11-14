@@ -1,0 +1,89 @@
+P2I BENCH 3.5 PISTOLET BALAYAGE (gun sweep) - FZ-10 (2026-11-12, gun resting on the table, monitor in normal scan, room dark)
+hw.c group_gunsweep: page 1 a white bar 4 pixels wide, whole height, x 96..222 by 2; page 2 a bar 2 lines high, whole width,
+lines 56..182 by 2. Each place shown 6 fields, read in the last 4; for each place where the gun saw the bar: place, counter (20 bits),
+line count of the last reading.
+
+Page 1/2 (photo 06-pistolet-balayage-1.jpg): BARRE VERTICALE (vertical bar) X 172-182 VUE (seen) 6 FOIS (times)
+   x    counter   lines
+  172   199004     8
+  174   197728    11
+  176   19647?     ?     (last digit and line count cut by the monitor's overscan)
+  178   197738    12
+  180   199020     9
+  182   20157?     ?     (cut)
+
+First reading: the counter steps by about one line (1271) between places: the gun sees a round spot about 12 pixels wide and 12-13
+lines high; at the edges of the spot the bar crosses it on fewer lines lower down (8-9 lines, larger counter), at its centre on
+the most lines from higher up (11-12 lines, smaller counter). With the core's model counter = 1271.1 x (line + 11) + C + 1.595 x dot
+(dot = 2 x pixel, bar left edge), the six places give C = 164, 152, ~164, 150, 154, ~161 (mean about 158, model 144: about 2 pixels
+of offset), spread +-7 counts (+-1 pixel). The per-line constant is checked by page 2.
+
+Page 2/2 (photo 07-pistolet-balayage-2.jpg): BARRE HORIZONTALE (horizontal bar) Y 140-154 VUE 8 FOIS
+   y    counter   lines
+  140   193912     1
+  142   196422     1
+  144   19889?     ?     (cut by the overscan)
+  146   201492     1
+  148   204036     1
+  150   20658?     ?     (cut)
+  152   209134     1
+  154   211694     1
+
+Fit (6 known places): straight line 1270.52 counts per line, residuals +24 -7 -19 -16 0 +19 (a parabola: the gun triggers where
+the beam enters its round spot, further left on the middle lines of the spot); with a square term: 1270.52 counts per line,
+curvature 0.81 count per line^2 (12 pixels at 7 lines from the centre), residuals within 7 counts; counter 202761 at line 147.
+The SDK example uses 1270.7 per line (YSCANTIME 12707), Mad Dog decodes with 1271.0, the core's emulation uses 1271.1 (k_line
+325402/256): 0.6 too much, about +-11 pixels at the top and bottom of the screen once calibrated at the centre.
+With 1270.52 per line, page 1 at x 178 (centre of the spot, 12 lines seen) gives counter = 1270.52 x (L + 11) + 240 + 3.19 x pixel
+for a first lit line L = 144 (the vertical bar lights lines 144-155; the full-width bar of page 2 is seen from 140 to 155: the
+brighter bar triggers on a larger spot). A joint model of the trigger (light threshold within the spot) is still to do.
+
+Second run, monitor in UNDERSCAN for the whole test, gun moved a little (photos 08 and 09). The third line count of each row
+does not fit in the bench's 40 columns (cut by the program, not by the monitor).
+Page 1/2: BARRE VERTICALE X 172-178 VUE 4 FOIS
+   172 204088 6    174 202818 9    176 202822 ?    178 204104 6
+Page 2/2: BARRE HORIZONTALE Y 144-158 VUE 8 FOIS
+   144 198978 1    146 201502 1    148 204038 ?    150 206578 1    152 209124 1    154 211674 ?    156 214232 1    158 216828 1
+
+Joint reading of both runs (CORRECTS the first reading above):
+- the counts per line cannot be read to better than about +-2 from this test: the gun triggers where the beam enters its round
+  spot, and that entry point moves from line to line, so the slope depends on where the spot's centre is taken: run 1 gives
+  1271.3 per line with the centre in the middle of the lines seen (1270.5 with a straight line), run 2 gives 1275.2 (1274.1);
+  a joint fit gives 1271.5-1275.3 when the centres move by one line. 1270.7 (SDK), 1271.0 (Mad Dog) and 1271.1 (the core's
+  emulation) are all inside: no evidence of an error in the emulation.
+- horizontal: places where the vertical bar crosses the spot on the same number of lines give the expected 3.19 counts per pixel
+  (run 2: 172 and 178 both 6 lines, counters differ by 16, expected 19; 174/176 both 9 lines: 4, expected 6).
+- the spot: about 15 lines high and 12 pixels wide in normal scan; smaller in underscan (4 places, 6-9 lines): less light.
+- a precise per-line measurement needs a small square moving down one column (the entry point then stays in the same place).
+
+Third run, normal scan again, gun not moved since run 1 (photos 10 and 11):
+Page 1/2: BARRE VERTICALE X 172-182 VUE 6 FOIS
+   172 198998 8    174 197728 11    176 19647? ?    178 197738 12    180 199018 9    182 20284? ?
+Page 2/2: BARRE HORIZONTALE Y 140-154 VUE 8 FOIS
+   140 193912 1    142 196478 1    144 19793? ?    146 200348 2    148 202880 2    150 20558? ?    152 209134 1    154 211698 1
+
+Repeatability (runs 1 and 3, same place): page 1 x 172 199004/198998, 174 197728/197728, 178 197738/197738, 180 199020/199018
+(within 6 counts, 1 pixel); x 182 jumps by about one line (20157? / 20284?). Page 2: lines 140, 152, 154 equal within 4; lines
+146-148 seen on 2 lines in run 3 (1 in run 1) and about 1150 lower: the trigger moves by a line and ~20 pixels when the light is
+near the gun's threshold.
+Per-line constant from the edges of the spot (top bar 140 and bottom bar 154, where the chords are short and alike, so the entry
+point is about the same): run 1 (211694 - 193912) / 14 = 1270.1, run 3 (211698 - 193912) / 14 = 1270.4; a 3-pixel asymmetry of the
+spot would move this by 0.7: about 1270.3 +- 0.7 in normal scan. The SDK's 1270.7 fits; the emulation's 1271.1 is at the high end.
+(Run 2 in underscan gives 1275.0 edge to edge, but its bottom place jumps right by about 17 pixels: not used.)
+
+Fourth run: sweeps in normal scan, results photographed in UNDERSCAN (photos 12 and 13), gun not moved:
+Page 1/2: BARRE VERTICALE X 172-182 VUE 6 FOIS
+   172 198994 8    174 197722 11    176 196466 ?    178 196482 12    180 197758 10    182 200310 ?
+Page 2/2: BARRE HORIZONTALE Y 140-154 VUE 8 FOIS
+   140 193906 1    142 196420 1    144 198892 ?    146 201492 1    148 204036 1    150 206582 ?    152 209132 1    154 211694 1
+Page 2 equals run 1 within 6 counts at every place both show; page 1 equals run 1 at 172 and 174, while 178-182 trigger one line
+earlier (the right half of the spot crossed the threshold one line higher this time).
+
+Summary of the three normal-scan runs:
+- counts per line, edge to edge (bars 140 and 154): 1270.14, 1270.43, 1270.57: 1270.4 +- 0.2 (+- about 0.5 if the spot is a
+  little lopsided). Fits over all places swing from 1268.8 to 1273.0 with the one-line jumps: not usable.
+- counts per pixel: page 1 decomposes into whole lines plus 3.19 per pixel with residues under 0.01 line (13 counts): 3.19 per
+  pixel (1.595 per dot) confirmed.
+- SDK 1270.7 is inside the margin; the emulation's 1271.1 is 0.7 above the measure (about 13 pixels at the top and bottom of the
+  screen once a game has calibrated at the centre). Changing it needs the offset refitted on the disc 3.4 cross shots so that the
+  centre stays where it is.

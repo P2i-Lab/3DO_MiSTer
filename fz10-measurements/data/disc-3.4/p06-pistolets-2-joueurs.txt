@@ -1,0 +1,38 @@
+P2I BENCH 3.4 PISTOLETS 2 JOUEURS (guns, two players) - FZ-10, 2026-11-11 (photo 06-pistolets-2-joueurs.jpg)
+Chain: console - gun 1 - gun 2 - control pad (the tester had to put the pad third). The page did not start by itself at boot: gun_count
+(60 fields right after InitControlPad) found no 0x4D byte. The tester started it from the menu with A; it then found both guns at
+every cross. Nine crosses at x 40/160/280, y 40/120/200 (T1-T3 top row, T7-T9 bottom row), both guns aimed at the same cross with
+the trigger held. For each gun: place of its 0x4D byte in the 200-byte window (from 1), counter and hit count with Opera's layout
+(counter = (b1 & 1) << 19 | b2 << 11 | b3 << 3 | b4 >> 5, hits = b4 & 31), from the first sample with a hit.
+
+          x    y     A: place  counter hits    bytes               B: place  counter hits    bytes
+ T1      40   40         173    51104   28    4D 80 18 F4 1C          178    52314   22    4D 80 19 8B 56
+ T2     160   40         173    46378   27    4D 80 16 A5 5B          178    45084   23    4D 80 16 03 97
+ T3     280   40         173    49336   30    4D 80 18 17 1E          178    41698   24    4D 80 14 5C 58
+ T4      40  120         173   159176   29    4D 80 4D B9 1D          178   170584   23    4D 80 53 4B 17
+ T5     160  120         173   143012   29    4D 80 45 D4 9D          178   159494   23    4D 80 4D E0 D7
+ T6     280  120         173   133222   28    4D 80 41 0C DC          178   135766   23    4D 80 42 4A D7
+ T7      40  200         173   243046   31    4D 80 76 AC DF          178   258296   26    4D 80 7E 1F 1A
+ T8     160  200         173   246002   30    4D 80 78 1E 5E          178   270070   23    4D 80 83 DE D7
+ T9     280  200         173   227332   29    4D 80 6F 00 9D          178   233600   24    4D 80 72 10 18
+(bytes worked back from the counter and the hit count, except the centre ones which are on the page)
+ CENTRE A  4D 80 45 D4 9D 4D 80 4D   (bytes 3-4 are blurred on the photo; 45 D4 9D is what T5 A = 143012 / 29 gives, and fits)
+ CENTRE B  4D 80 4D E0 D7 80 00 FF   (decodes to 159494 / 23 = T5 B)
+ NON NUL (nonzero) 168: FF FF FF FF 4D 80 70 D9 9C 4D 80 78   (last sample, end of target 9: gun A 231116 / 28)
+T3 A is 49336 (confirmed by the tester on the screen); the other digits are clear on the enlarged crops.
+Aim: the tester held the two guns side by side and aimed with the cross between them, not very precisely.
+
+Reading:
+- Each gun answers with 5 bytes: 0x4D, 0x80 (both guns, trigger held), then a 20-bit counter and a 5-bit count. Opera's layout fits:
+  the counter grows with the row, the count is 22-31 lines on a white screen (the lines the gun sees).
+- In the window: zeros up to 167, FF FF FF FF at 168-171, gun 1 at 172-176, gun 2 at 177-181, the pad (80 00) at 182-183, then FF.
+- Counter per line, from the row means (first line seen = line of the cross - hits / 2): gun A 1193 (18.8 MHz), gun B 1303
+  (20.5 MHz); line 0 of the picture is at 15.5 and 8.3 lines of counter. The two guns differ by 9 %: aim or gun clocks.
+- In every row the counter falls from left to right (row 120: -25954 for A, -34818 for B), while the beam takes only about
+  +1000 counts to cross the row: the aim varied by up to about 25 lines, so these points give the vertical scale only.
+- Gun A sees 27-31 lines, gun B 22-26.
+- Update (p08): both guns count at 20 MHz, 1271.1 per line, in step with the picture; the slopes above come from the aim.
+- Next: PISTOLET CIBLES (gun targets) with one gun aimed carefully at each cross, then the same with the other gun: vertical scale and offset
+  for each gun (same clock or not), and whether the fall from left to right is real or only the aim.
+- A fixed gun (resting on a support, many samples, a black/white edge moved by known steps) would give the real line and pixel
+  scales exactly. Not needed before the first emulation.

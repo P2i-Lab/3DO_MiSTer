@@ -1,0 +1,36 @@
+P2I BENCH 3.4 PISTOLET CIBLES (gun targets) - FZ-10, 2026-11-11 (photo 07-pistolet-cibles-1.jpg)
+One gun: gun 1 (confirmed by the tester), chain console - gun - pad, aimed carefully at each cross with the trigger
+held. Nine crosses at x 40/160/280, y 40/120/200. Per cross: place of the 0x4D byte in the 200-byte window (from 1), the 8 bytes from
+there, counter and hit count with Opera's layout (counter = (b1 & 1) << 19 | b2 << 11 | b3 << 3 | b4 >> 5, hits = b4 & 31).
+
+          x    y   place   bytes                      counter  hits
+ T1      40   40    177    4D 80 24 20 D9 80 00 FF      73990   25
+ T2     160   40    177    4D 80 23 B3 9A 80 00 FF      73116   26
+ T3     280   40    177    4D 80 22 06 DA 80 00 FF      69686   26
+ T4      40  120    177    4D 80 4B DB 9B 80 00 FF     155356   27
+ T5     160  120    177    4D 80 4F 24 1A 80 00 FF     162080   26
+ T6     280  120    177    4D 80 4F F0 19 80 00 FF     163712   25
+ T7      40  200    177    4D 80 7E 1F 1D 80 00 FF     258296   29
+ T8     160  200    177    4D 80 7E 4F DB 80 00 FF     258686   27
+ T9     280  200    177    4D 80 82 3B 9A 80 00 FF     266716   26
+ NON NUL (nonzero) 172: FF FF FF FF 4D 80 7F C0   (last sample, end of target 9)
+Every row's bytes decode to the counter and count printed beside them (blurred hex digits checked that way: T2 B3, T4 DB 9B, T9 82 3B).
+
+Reading:
+- Window with one gun: FF FF FF FF at 172-175, the gun at 176-180, the pad (80 00) at 181-182, FF from 183. With two guns (p06):
+  FF FF FF FF at 168, guns at 172 and 177, pad at 182, FF from 184. The block of whole words ends at 184 in both cases: the data
+  sit at the end of the buffer and move up by whole words when there are more of them.
+- Fit over the 9 crosses (first line seen = line of the cross - hits / 2):
+                         counts per line   (clock if every bit counts)   line 0 of the picture at   scatter
+    one gun, careful         1187              18.68 MHz                    31.8 lines of counter     4.0 lines
+    2-gun run, gun A         1192              18.76 MHz                    15.5                      7.8
+    2-gun run, gun B         1303              20.51 MHz                     8.3                     10.9
+  Gun 1 has the same scale here as gun A (gun 1) of the two-gun run. The scatter halves with a careful aim, and the fall from left to
+  right seen on every row of the two-gun run is gone (spans -4304, +8356, +8420): it came from the aim. The two-gun hold also
+  pointed about 16 lines higher. Gun B's 1303 comes from the least precise aim: whether gun 2 really counts faster is still open.
+- Update (p08): with gun 2 as well, the counters taken modulo 1271.1 (20 MHz x one line) group by column: both guns count at
+  20 MHz in step with the picture, and the slopes in the table above come from the vertical aim.
+- The counter is even in all 27 samples (p06 and this page): its lowest bit never moves (steps of 2, or a flag bit).
+- Curiosity: T7 here (258296, bytes 7E 1F 1D) is the same number as T7 B of the two-gun run.
+- If the counter starts with the control port transfer at the VBL, picture line 0 (counter 16 on the VCNT page) is about 32 lines
+  after that start, so the start would be near line counter 246 of the previous field. Rough: it rests on hits / 2.

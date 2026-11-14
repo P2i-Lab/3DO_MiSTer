@@ -1,0 +1,11 @@
+P2I BENCH 3.2 ARM PAS A PAS (ARM step by step) - FZ-10 (photo 05-arm-pas-a-pas.jpg).
+
+Last line on the screen: R 0 I 8 E3A0701D 9508102F
+(The first attempt crashed the console; after a restart the page stopped on this line.)
+
+Reading:
+- Program 0 of the family LDR (the same as the one that stopped ARM CRC SUIVI (ARM CRC tracking) on disc 3.1), steps 1 to 7 passed, step 8 stops.
+- E3A0701D = mov r7,#0x1D. 9508102F = STRLS r1,[r8,#-47]: a 32-bit store at scratch + 512 - 47, an address with low bits 1 (not word aligned), inside the scratch area owned by the task.
+- With the flags of this program (N1 Z0 C0 V0 under the left-to-right order of evaluation; scratchpad mes/arm_step.py), the store at step 3 (word aligned) ran before it, step 5 (also not aligned) is not executed: step 8 is the first executed store that is not word aligned.
+- Hypothesis from this single case: a 32-bit store that is not word aligned stops the real console (abort from the memory controller, or a crash of the task). Opera and the core do not stop.
+- Consequence for the bench: the family LDR can never finish on the real console while it makes unaligned word accesses; the later families were never measured on the FZ-10.

@@ -1,0 +1,31 @@
+P2I BENCH 3.4 PORT MANETTE DIRECT (direct control port) - FZ-10, 2026-11-11 (photos 09a-09d)
+Live control port buffer (200 bytes from IN = 001FD584, refreshed every 8 fields), chain console - gun 2 - pad, on the page itself
+(text on a dark screen). Words 0-41 are zero in every photo, word 43 = FFFFFFFF, words 46-49 = FFFFFFFF. Word 44 = gun bytes 0-3,
+word 45 = gun byte 4, then the pad (80 00), then FF.
+
+ photo   state                               word 44     word 45     gun byte 1
+ 09a     nothing pressed                     4D000000    008000FF    00
+ 09b     trigger held                        4D800000    008000FF    80
+ 09c     calibration button held             4D480000    008000FF    48
+ 09d     trigger and calibration button      4DC80000    008000FF    C8
+(byte 1 of 09c and 09d checked on enlarged crops)
+
+Reading:
+- Gun byte 1 holds the buttons: trigger = 80, calibration button = 48 (two bits, 40 and 08, every time), both = C8.
+- The calibration button is an ordinary button bit read by the software, like the trigger; nothing in the counter data moves when it
+  is pressed, which fits the remainders of p08 (same time base before and after the press).
+- Counter and line count are 0 in all four photos: the gun sees nothing on this dark page.
+
+Gun pointed at the white digits of the same page, trigger NOT pressed (photos 09e-1 to 09e-6, values read on the photos):
+ photo   word 44     word 45     buttons  counter  count   counter line  remainder (column)
+ 09e-1   4D00568F    C18000FF    00       177278    1      139           596 (about 142)
+ 09e-2   4D0050EC    418000FF    00       165730    1      130           488 (about 108)
+ 09e-3   4D004B64    C38000FF    00       154406    3      121           604 (about 145)
+ 09e-4   4D000000    008000FF    00            0    0      nothing seen (blurred, the page changed during the photo)
+ 09e-5   4D0061B4    018000FF    00       200096    1      157           535 (about 123)
+ 09e-6   4D00744F    818000FF    00       238204    1      187           510 (about 115)
+(counter line = counter div 1271.09; column = (remainder - 144) / 3.18, from p08)
+- The gun measures at every field whether or not the trigger is pressed: the trigger is only bit 80 of byte 1. With the thin white
+  digits it sees 1 to 3 lines. When it sees nothing, counter and count are 0 (not the last value).
+- The counters are even here too.
+- Pad bytes 80 00 with no pad button pressed; PAD (DoControlPad) 00000000.

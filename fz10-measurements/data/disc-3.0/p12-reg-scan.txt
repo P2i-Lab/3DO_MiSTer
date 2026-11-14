@@ -1,0 +1,26 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, REG SCAN 1/2, photo 12-reg-scan.jpg: screen just before the console reboots.
+# src/bench/hw.c, group_scan: MADAM 100 to 7FC, read only, one word at a time.
+# The values shown are those neither zero nor equal to the value of empty addresses, in lines of 3 (a line is displayed when it is complete).
+# The last column is cut off at the edge of the screen: ? = last digit unreadable.
+
+110 E1500000  120 1F811F40  130 00001414
+134 00EF013F  138 00200000  13C 0020000?
+140 01380031  148 00000001  150 0010000?
+180 000018C6  184 00006318  188 0000631?
+18C 00006318  190 00006318  194 0000631?
+198 00006318  19C 00006318  1A0 0000010?
+1A8 00000100  1B0 00000100  1B4 0000018?
+1BC 00000100  1C0 00000102  1C4 0000010?
+1CC 00000100  1D4 00000100  1D8 0000010?
+1DC 00000100  1E4 00008A31  1E8 0000010?
+1EC 00000100  1F8 00000100  228 0000002?
+230 0000FFFF  234 00008000  23C 0000000?
+244 00000020  248 00000004  260 0000040?
+EN COURS: LECTURE (running: reading)
+
+# Conclusion: 13 lines out of 17 possible. The reboot happens while reading an address located after 260 (570 to 57C are safe, PORT MANETTE (control port) reads them).
+# One or two values read after 260 may not have been displayed (incomplete line). Exact address and mechanism unknown.
+# Page 2/2 (CLIO 140 to 3FC) was not reached.
+
+# Simulated core (1109c + signed zero, run s304, image 02130): the page completes without incident.
+# 110 to 13C identical (apart from cut-off digits). 140 to 17C: FFFFFFFF. 180 to 1F0: 000018C6 everywhere.

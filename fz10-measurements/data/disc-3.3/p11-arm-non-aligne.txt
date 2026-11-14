@@ -1,0 +1,26 @@
+P2I BENCH 3.3 ARM NON ALIGNE (ARM unaligned) - FZ-10 (photo 11-arm-non-aligne.jpg). One instruction per line, each in its own thread (src/bench/arm.c, group_unaligned). Columns: case, OK or AB (thread stopped), r1 after, word at the aligned address, next word. Before: 11121314 21222324 in memory, r1 = A1A2A3A4.
+
+ 0 OK 11121314 11121314 21222324    LDR  +0 DRAM
+ 1 OK 00000012 11121314 21222324    LDRB +1 DRAM
+ 2 OK A1A2A3A4 11A41314 21222324    STRB +1 DRAM
+ 3 OK A1A2A3A4 A1A2A3A4 21222324    STR  +0 DRAM
+ 4 AB                               LDR  +1 DRAM
+ 5 AB                               LDR  +2 DRAM
+ 6 AB                               LDR  +3 DRAM
+ 7 AB                               STR  +1 DRAM
+ 8 AB                               STR  +2 DRAM
+ 9 AB                               STR  +3 DRAM
+10 AB                               LDM  +1 DRAM
+11 AB                               STM  +1 DRAM
+12 AB                               SWP  +1 DRAM
+13 AB                               LDR  +1 VRAM
+14 AB                               STR  +1 VRAM
+FAM AB RUN 0                        family with aligned stores and loads at any address
+
+Opera on the same image (no abort, it rotates):
+ 4 OK 14111213  5 OK 13141112  6 OK 12131411  7-9 OK A1A2A3A4 A1A2A3A4 21222324  10 OK 11121314  11 OK A1A2A3A4 A1A2A3A4  12 OK 14111213 B1B2B3B4  13 OK 14111213  14 OK A1A2A3A4 A1A2A3A4  FAM OK FE5B6D5B
+
+Reading:
+- Every word access at an address that is not word aligned stops the task on the FZ-10: load, store, block transfer, swap, in DRAM and in VRAM (MADAM abort cause ABT_BWACC, "byte address, word access"; the kernel kills only the task at fault: the page went on without a restart).
+- Byte accesses at any address work, on the big-endian lanes: LDRB +1 reads 12, STRB +1 writes byte 1 (11 A4 13 14).
+- The stops of the families LDR on discs 3.0 to 3.2 are explained. Opera and the core do not raise this abort.

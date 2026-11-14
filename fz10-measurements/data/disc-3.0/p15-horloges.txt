@@ -1,0 +1,19 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, HORLOGES 60 S (clocks), photo 15-horloges.jpg
+# src/bench/hw.c, group_clock: 3600 VBL, audio frame counter and audio ticks recorded during that time.
+
+TEMPS  60059456 US  (TEMPS = time)
+VBL    3600
+TRAMES 2640237  (TRAMES = frames)
+TICKS  14349
+PAS US 16  (PAS = step)
+
+# Calculations (time measured by the console's system clock)
+# VBL     : 16683,18 us, i.e. 59,9406 Hz (NTSC: 59,9401 Hz)
+# Audio   : 43960,4 Hz, i.e. 733,40 frames per VBL (-0,317 % relative to 44100)
+# Ticks   : 238,9 Hz, 184 frames per tick
+# CD      : 6688 us per block at 2X (CD AVANCE (CD steps) page), i.e. 149,52 blocks/s (-0,32 % relative to 150)
+#           Audio and CD keep exactly the nominal ratio (44100 / 150): 43960,4 / 149,52 = 294,0.
+#
+# Core (simulation and real MiSTer, disc 2.3, 5 s measurement): VBL 59,83 Hz, audio 44100 Hz, 737,1 frames per VBL.
+# Core deviation: VBL -0,18 %, audio +0,32 %, frames per VBL +0,5 %.
+# The 5 s measurement of disc 2.3 on the console gave 59,94 Hz and about 43964 Hz.

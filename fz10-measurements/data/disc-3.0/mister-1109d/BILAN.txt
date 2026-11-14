@@ -1,0 +1,8 @@
+Real MiSTer, core 3DO-test1109d (1109c + ACE + DIVZ), P2i Bench 3.0 disc, 9 November 2026.
+
+Cels (2 pages, 165 values): 89 identical to the simulation of the core with ACE, 161 within 1,5 %, the other 4 within 4,7 %.
+First value (16-bit cel without ACE): 14160 us, versus 13104 with 1109c: the ACE fix is indeed active on the FPGA.
+Math extremes: 15 lines out of 18 identical to the console, the 3 Z zero lines differ (see p06).
+DSP: 6 CRCs identical to the console.
+CD avance (CD steps): about 6 ms per request whatever the jump, no rotation rule.
+Horloges (clocks): VBL 59,826 Hz, audio 44100 Hz.

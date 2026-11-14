@@ -1,0 +1,9 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, DSP, photo 10-dsp.jpg
+# Instrument, CRC32 of the outputs, number of combinations, unstable outputs, two examples, DSP cycles (column cut off on the right).
+# The six CRCs are identical to those of Opera.
+TIMESP 1BEC04CC 512 0 2000 7FFE 45
+MULT   4CC4F313  64 0 2000 7FFE 44
+ADD    6E39E955  64 0 7FFF 7FFF 44
+SUB    BC63982D  64 0 0000 0000 44
+MAX    22C8176B  64 0 4000 7FFF 49?
+MIN    177F7C5E  64 0 4000 7FFF 49?

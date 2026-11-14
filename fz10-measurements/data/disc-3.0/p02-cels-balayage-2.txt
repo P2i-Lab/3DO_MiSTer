@@ -1,0 +1,20 @@
+# Japanese FZ-10, P2i Bench 3.0 disc, CELS BALAYAGE 2/2 (cel sweep), photo 02-cels-balayage-2.jpg
+# Times in microseconds. Order of the values: that of the page1() calls in src/bench/sweep.c.
+# Warning: B0[1..4] (CCB without LDSIZE, LDPRS, LDPPMP) are badly designed: the CCB has a variable length,
+# removing a flag shifts the reading of the following fields. These four values do not measure the intended cost.
+B0 528 1184 1034320 34752 448
+B1 528 256 608 656 768
+B2 768 12688 12720 12672 12688
+B3 8880 9024 8416 8256 9040
+B4 9040 8880 8256 12704 9024
+B5 9040 12656 8256 8880 11392
+B6 13008 14640 14560 13424 12000
+B7 10592 9856 10832 12672 14480
+B8 15328 14688 13856 13456 11280
+B9 10896 9776 4048 4080 4272
+BA 4336 4016 16320 16304 29776
+BB 29824 16304 29792 29840 16304
+BC 6800 22224 22080 22080 16304
+BD 16288 5648 8672 7872 16304
+BE 16320 11904 128 160 240
+BF 16624 16624 16672

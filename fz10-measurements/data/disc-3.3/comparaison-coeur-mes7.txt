@@ -1,0 +1,461 @@
+=== K (74 values on the FZ-10, 15 rows on the core)
+150x150 1.41 in                  FZ   6992 core   6272  0.90
+150x150 1.41 in ACE              FZ   6544 core   5296  0.81
+226x150 1.41 in                  FZ  10864 core   9664  0.89
+226x150 1.41 in ACE              FZ  10272 core   7632  0.74
+300x150 1.41 74c right           FZ  13280 core  10560  0.80
+300x150 1.41 74c right ACE       FZ  11280 core   9872  0.88
+300x150 1.41 74c left            FZ  13232 core  10576  0.80
+300x150 1.41 74c left ACE        FZ  11376 core   9520  0.84
+300x150 1.41 37+37c              FZ  13328 core  10528  0.79
+300x150 1.41 37+37c ACE          FZ  11488 core   9600  0.84
+150x170 1.41 in                  FZ   7856 core   7072  0.90
+150x170 1.41 in ACE              FZ   7952 core   5872  0.74
+150x300 1.41 130r below          FZ  12752 core   9216  0.72
+150x300 1.41 130r below ACE      FZ  10176 core   7168  0.70
+150x300 1.41 130r above          FZ  12736 core   9232  0.72
+150x300 1.41 130r above ACE      FZ  10256 core   7152  0.70
+150x300 1.41 65+65r              FZ  12736 core   9200  0.72
+150x300 1.41 65+65r ACE          FZ  10224 core   7152  0.70
+226x170 1.41 screen              FZ  12304 core  10944  0.89
+226x170 1.41 screen ACE          FZ  11728 core   9248  0.79
+300x170 1.41 screen+74c          FZ  14960 core  11840  0.79
+300x170 1.41 screen+74c ACE      FZ  12864 core  10944  0.85
+226x300 1.41 screen+130r         FZ  18640 core  13360  0.72
+226x300 1.41 screen+130r ACE     FZ  14896 core  11120  0.75
+300x300 1.41 both                FZ  23440 core  14960  0.64
+300x300 1.41 both ACE            FZ  17120 core  13296  0.78
+300x300 1.41 out right           FZ  20048 core   7408  0.37
+300x300 1.41 out right ACE       FZ  10560 core   5392  0.51
+300x300 1.41 out left            FZ  20048 core   7408  0.37
+300x300 1.41 out left ACE        FZ  10432 core   5504  0.53
+300x300 1.41 out below           FZ  20048 core   7888  0.39
+300x300 1.41 out below ACE       FZ  10576 core   5392  0.51
+300x300 1.41 out above           FZ  20048 core   7408  0.37
+300x300 1.41 out above ACE       FZ  10560 core   5408  0.51
+150x150 1 in                     FZ   4720 core   4240  0.90
+150x150 1 in ACE                 FZ   3280 core   3824  1.17
+300x150 1 in                     FZ   9760 core   7936  0.81
+300x150 1 in ACE                 FZ   6368 core   7616  1.20
+300x150 1 140c right             FZ   7312 core   5984  0.82
+300x150 1 140c right ACE         FZ   4832 core   5552  1.15
+300x150 1 140c left              FZ   7296 core   6048  0.83
+300x150 1 140c left ACE          FZ   5008 core   5344  1.07
+150x240 1 in                     FZ   7616 core   6816  0.89
+150x240 1 in ACE                 FZ   5136 core   6048  1.18
+150x300 1 60r below              FZ   9088 core   7568  0.83
+150x300 1 60r below ACE          FZ   5824 core   6592  1.13
+150x300 1 60r above              FZ   9088 core   7584  0.83
+150x300 1 60r above ACE          FZ   5840 core   6608  1.13
+150x300 1 30+30r                 FZ   9104 core   7584  0.83
+150x300 1 30+30r ACE             FZ   5824 core   6704  1.15
+300x240 1 in                     FZ  15312 core  13360  0.87
+300x240 1 in ACE                 FZ  10816 core  12304  1.14
+300x300 1 60r                    FZ  17200 core  14800  0.86
+300x300 1 60r ACE                FZ  12192 core  13360  1.10
+300x300 .5 in                    FZ  12704 core  10416  0.82
+300x300 .5 in ACE                FZ  10432 core   8736  0.84
+300x300 .5 right half            FZ  11488 core   8608  0.75
+300x300 .5 right half ACE        FZ   9616 core   6832  0.71
+300x300 .5 left half             FZ  11552 core   9120  0.79
+300x300 .5 left half ACE         FZ   9520 core   6832  0.72
+300x300 .5 low half              FZ  11392 core   9120  0.80
+300x300 .5 low half ACE          FZ   8176 core   6832  0.84
+300x300 .5 up half               FZ  11552 core   9136  0.79
+300x300 .5 up half ACE           FZ   8048 core   6816  0.85
+case12 SCLIP                     FZ  23408 core  14960  0.64
+case12 SCLIP ACE                 FZ  17136 core  13200  0.77
+case2 SCLIP                      FZ  13280 core  10560  0.80
+case2 SCLIP ACE                  FZ  11344 core   9824  0.87
+226x170 mirror X                 FZ  12304 core  10912  0.89
+226x170 mirror X ACE             FZ  11840 core   9248  0.78
+226x170 mirror Y                 FZ  12352 core  10864  0.88
+226x170 mirror Y ACE             FZ  11872 core   9200  0.77
+226x170 mirror XY                FZ  12304 core  10912  0.89
+226x170 mirror XY ACE            FZ  11840 core   9296  0.79
+within 10%: 3, beyond: 71
+=== Y (60 values on the FZ-10, 15 rows on the core)
+X only .25                       FZ   5072 core   4128  0.81
+X only .5                        FZ   5616 core   5072  0.90
+X only .71                       FZ   6080 core   5920  0.97
+X only 1.41                      FZ   8832 core   8336  0.94
+X only 2                         FZ  10704 core   9760  0.91
+X only 3                         FZ  13744 core  12560  0.91
+X only ACE .25                   FZ   3344 core   3424  1.02
+X only ACE .5                    FZ   4032 core   4160  1.03
+X only ACE .71                   FZ   4304 core   4464  1.04
+X only ACE 1.41                  FZ   5680 core   6448  1.14
+X only ACE 2                     FZ   7168 core   7680  1.07
+X only ACE 3                     FZ   9088 core  10496  1.15
+Y only .25                       FZ   4768 core   4288  0.90
+Y only .5                        FZ   5600 core   5424  0.97
+Y only .71                       FZ   6064 core   6144  1.01
+Y only 1.41                      FZ   9536 core   9040  0.95
+Y only 2                         FZ  12336 core  10736  0.87
+Y only 3                         FZ  17536 core  13424  0.77
+Y only ACE .25                   FZ   4208 core   3376  0.80
+Y only ACE .5                    FZ   4416 core   4208  0.95
+Y only ACE .71                   FZ   4608 core   4928  1.07
+Y only ACE 1.41                  FZ   9168 core   7088  0.77
+Y only ACE 2                     FZ  10304 core   9280  0.90
+Y only ACE 3                     FZ  14016 core  11920  0.85
+X2 Y.5                           FZ   7216 core   6368  0.88
+X.5 Y2                           FZ   7616 core   6560  0.86
+X3 Y.25                          FZ   6448 core   5488  0.85
+X.25 Y3                          FZ   7184 core   5792  0.81
+X2 Y.5 ACE                       FZ   5312 core   5552  1.05
+X.5 Y2 ACE                       FZ   6416 core   5616  0.88
+X3 Y.25 ACE                      FZ   5248 core   4704  0.90
+X.25 Y3 ACE                      FZ   5888 core   5008  0.85
+blend .5                         FZ   6032 core   4896  0.81
+blend 2                          FZ  37536 core  27088  0.72
+blend 3                          FZ  85776 core  55584  0.65
+blend .5 ACE                     FZ   4928 core   4112  0.83
+blend 2 ACE                      FZ  29840 core  17936  0.60
+blend 3 ACE                      FZ  69392 core  34080  0.49
+8b .5                            FZ   3040 core   3376  1.11
+8b 1                             FZ   5344 core   5088  0.95
+8b 2                             FZ  14656 core  14080  0.96
+8b .5 ACE                        FZ   2528 core   2480  0.98
+8b 1 ACE                         FZ   3840 core   4400  1.15
+8b 2 ACE                         FZ  12016 core  10320  0.86
+uni .6                           FZ   5136 core   4592  0.89
+uni .85                          FZ   6288 core   6256  0.99
+uni 1.1                          FZ   7712 core   7808  1.01
+uni 1.2                          FZ   9296 core   8144  0.88
+uni 1.3                          FZ   9968 core   8592  0.86
+uni 1.5                          FZ  11696 core  10672  0.91
+uni 1.7                          FZ  13264 core  12480  0.94
+uni 2.5                          FZ  24688 core  21936  0.89
+uni .6 ACE                       FZ   4080 core   3744  0.92
+uni .85 ACE                      FZ   4512 core   4704  1.04
+uni 1.1 ACE                      FZ   7552 core   6112  0.81
+uni 1.2 ACE                      FZ   9008 core   6688  0.74
+uni 1.3 ACE                      FZ   9488 core   7232  0.76
+uni 1.5 ACE                      FZ  11136 core   8912  0.80
+uni 1.7 ACE                      FZ  12432 core  10352  0.83
+uni 2.5 ACE                      FZ  20432 core  16304  0.80
+within 10%: 25, beyond: 35
+=== L (90 values on the FZ-10, 15 rows on the core)
+16b W1                           FZ  11584 core  10448  0.90
+16b W2                           FZ  12336 core  11776  0.95
+16b W3                           FZ  13072 core  17856  1.37
+16b W4                           FZ  13712 core  18512  1.35
+16b W5                           FZ   3504 core   4688  1.34
+16b W6                           FZ   3680 core   4864  1.32
+16b W7                           FZ   3840 core   5040  1.31
+16b W8                           FZ   4000 core   5296  1.32
+16b W9                           FZ   5008 core   5456  1.09
+16b W10                          FZ   5152 core   5504  1.07
+16b W11                          FZ   6352 core   5808  0.91
+16b W12                          FZ   6496 core   7344  1.13
+16b W13                          FZ   6592 core   7472  1.13
+16b W14                          FZ   6864 core   7680  1.12
+16b W15                          FZ   7024 core   8320  1.18
+16b W16                          FZ   7232 core   8576  1.19
+16b W17                          FZ   8688 core   8048  0.93
+16b W18                          FZ   8864 core   8912  1.01
+16b W19                          FZ   9984 core   8992  0.90
+16b W20                          FZ  10240 core  10496  1.02
+16b W21                          FZ  10256 core  10768  1.05
+16b W22                          FZ  10480 core  10944  1.04
+16b W23                          FZ  10752 core  11056  1.03
+16b W24                          FZ  10864 core  11184  1.03
+16b W25                          FZ  11904 core  11376  0.96
+16b W26                          FZ  12032 core  11552  0.96
+16b W27                          FZ  13168 core  11744  0.89
+16b W28                          FZ  13312 core  13248  1.00
+16b W29                          FZ  13488 core  13408  0.99
+16b W30                          FZ  13648 core  13584  1.00
+16b W31                          FZ  13824 core  13760  1.00
+16b W32                          FZ  13968 core  13904  1.00
+16b W36                          FZ   2064 core   2016  0.98
+16b W40                          FZ   2160 core   2096  0.97
+16b W44                          FZ   2448 core   2352  0.96
+16b W48                          FZ   2528 core   2432  0.96
+16b W56                          FZ   2912 core   2768  0.95
+16b W64                          FZ   3296 core   3104  0.94
+16b W80                          FZ   4208 core   3776  0.90
+16b W96                          FZ   4832 core   4448  0.92
+16b W112                         FZ   5616 core   5200  0.93
+16b W128                         FZ   7152 core   5792  0.81
+16b W160                         FZ   7888 core   7200  0.91
+16b W192                         FZ  10112 core   9072  0.90
+16b W224                         FZ  11712 core  10480  0.89
+16b W1 ACE                       FZ   8816 core   8928  1.01
+16b W2 ACE                       FZ   9744 core   9584  0.98
+16b W3 ACE                       FZ  10224 core  12080  1.18
+16b W4 ACE                       FZ  10784 core  12768  1.18
+16b W5 ACE                       FZ   2704 core   3280  1.21
+16b W6 ACE                       FZ   2784 core   3440  1.24
+16b W7 ACE                       FZ   2880 core   3648  1.27
+16b W8 ACE                       FZ   2976 core   3856  1.30
+16b W9 ACE                       FZ   4208 core   3984  0.95
+16b W10 ACE                      FZ   4416 core   4096  0.93
+16b W11 ACE                      FZ   4576 core   5392  1.18
+16b W12 ACE                      FZ   4640 core   5504  1.19
+16b W13 ACE                      FZ   4736 core   5760  1.22
+16b W14 ACE                      FZ   4832 core   5824  1.21
+16b W15 ACE                      FZ   4880 core   6160  1.26
+16b W16 ACE                      FZ   5120 core   6336  1.24
+16b W17 ACE                      FZ   5920 core   6400  1.08
+16b W18 ACE                      FZ   6256 core   6752  1.08
+16b W19 ACE                      FZ   6736 core   7744  1.15
+16b W20 ACE                      FZ   6768 core   8640  1.28
+16b W21 ACE                      FZ   6848 core   8784  1.28
+16b W22 ACE                      FZ   6960 core   8224  1.18
+16b W23 ACE                      FZ   6944 core   9152  1.32
+16b W24 ACE                      FZ   7360 core   9296  1.26
+16b W25 ACE                      FZ   7936 core   9392  1.18
+16b W26 ACE                      FZ   8224 core   9664  1.18
+16b W27 ACE                      FZ   9296 core  10832  1.17
+16b W28 ACE                      FZ   9392 core  11072  1.18
+16b W29 ACE                      FZ   9424 core  11136  1.18
+16b W30 ACE                      FZ   9504 core  11312  1.19
+within 10%: 35, beyond: 40
+=== N (90 values on the FZ-10, 18 rows on the core)
+8b W4                            FZ  13776 core  12560  0.91
+8b W8                            FZ   4000 core   5200  1.30
+8b W12                           FZ   4704 core   5744  1.22
+8b W16                           FZ   6240 core   6480  1.04
+8b W20                           FZ   7920 core   7104  0.90
+8b W24                           FZ   8528 core   9648  1.13
+8b W28                           FZ   9680 core  10256  1.06
+8b W32                           FZ  11152 core  10960  0.98
+8b W36                           FZ   1632 core   1488  0.91
+8b W40                           FZ   1712 core   1744  1.02
+8b W44                           FZ   1792 core   1824  1.02
+8b W48                           FZ   1952 core   1904  0.98
+8b W52                           FZ   2192 core   1984  0.91
+8b W56                           FZ   2256 core   2224  0.99
+8b W60                           FZ   2352 core   2320  0.99
+8b W64                           FZ   2528 core   2400  0.95
+8b W68                           FZ   2720 core   2480  0.91
+8b W72                           FZ   2800 core   2720  0.97
+8b W76                           FZ   2896 core   2816  0.97
+8b W80                           FZ   3072 core   2896  0.94
+8b W84                           FZ   3280 core   2976  0.91
+8b W88                           FZ   3360 core   3216  0.96
+8b W92                           FZ   3440 core   3312  0.96
+8b W96                           FZ   3616 core   3392  0.94
+8b W100                          FZ   3824 core   3472  0.91
+8b W104                          FZ   3904 core   3728  0.95
+8b W108                          FZ   3984 core   3808  0.96
+8b W112                          FZ   4160 core   3872  0.93
+8b W116                          FZ   4368 core   3952  0.90
+8b W120                          FZ   4448 core   4208  0.95
+8b W124                          FZ   4528 core   4304  0.95
+8b W128                          FZ   4720 core   4400  0.93
+8b W4 ACE                        FZ  10800 core  10944  1.01
+8b W8 ACE                        FZ   2960 core   3856  1.30
+8b W12 ACE                       FZ   3744 core   4624  1.24
+8b W16 ACE                       FZ   5008 core   5232  1.04
+8b W20 ACE                       FZ   5904 core   5888  1.00
+8b W24 ACE                       FZ   6128 core   7488  1.22
+8b W28 ACE                       FZ   6768 core   8656  1.28
+8b W32 ACE                       FZ   8656 core   9376  1.08
+8b W36 ACE                       FZ   1216 core   1248  1.03
+8b W40 ACE                       FZ   1248 core   1456  1.17
+8b W44 ACE                       FZ   1328 core   1536  1.16
+8b W48 ACE                       FZ   1504 core   1600  1.06
+8b W52 ACE                       FZ   1600 core   1664  1.04
+8b W56 ACE                       FZ   1648 core   1888  1.15
+8b W60 ACE                       FZ   1728 core   1984  1.15
+8b W64 ACE                       FZ   1888 core   2096  1.11
+8b W68 ACE                       FZ   2016 core   2080  1.03
+8b W72 ACE                       FZ   2048 core   2320  1.13
+8b W76 ACE                       FZ   2128 core   2400  1.13
+8b W80 ACE                       FZ   2304 core   2480  1.08
+8b W84 ACE                       FZ   2400 core   2512  1.05
+8b W88 ACE                       FZ   2432 core   2736  1.12
+8b W92 ACE                       FZ   2512 core   2816  1.12
+8b W96 ACE                       FZ   2672 core   2896  1.08
+8b W100 ACE                      FZ   2784 core   2944  1.06
+8b W104 ACE                      FZ   2784 core   3168  1.14
+8b W108 ACE                      FZ   2912 core   3248  1.12
+8b W112 ACE                      FZ   3088 core   3312  1.07
+8b W116 ACE                      FZ   3168 core   3360  1.06
+8b W120 ACE                      FZ   3136 core   3584  1.14
+8b W124 ACE                      FZ   3312 core   3664  1.11
+8b W128 ACE                      FZ   3472 core   3872  1.12
+6b W5                            FZ   3520 core   3216  0.91
+6b W10                           FZ   4336 core   5504  1.27
+6b W16                           FZ   5344 core   6464  1.21
+6b W21                           FZ   7088 core   7280  1.03
+6b W26                           FZ   9360 core   8000  0.85
+6b W32                           FZ  10464 core  11088  1.06
+6b W37                           FZ   1408 core   1488  1.06
+6b W42                           FZ   1648 core   1616  0.98
+6b W48                           FZ   1872 core   1728  0.92
+6b W53                           FZ   1984 core   2000  1.01
+6b W58                           FZ   2080 core   2112  1.02
+6b W64                           FZ   2320 core   2224  0.96
+6b W128                          FZ   4288 core   4048  0.94
+6b W5 ACE                        FZ   2720 core   2832  1.04
+6b W10 ACE                       FZ   3536 core   4128  1.17
+6b W16 ACE                       FZ   4016 core   5152  1.28
+6b W21 ACE                       FZ   5520 core   6048  1.10
+6b W26 ACE                       FZ   6544 core   6560  1.00
+6b W32 ACE                       FZ   7072 core   8848  1.25
+6b W37 ACE                       FZ   1040 core   1184  1.14
+6b W42 ACE                       FZ   1216 core   1312  1.08
+6b W48 ACE                       FZ   1376 core   1376  1.00
+6b W53 ACE                       FZ   1392 core   1552  1.11
+6b W58 ACE                       FZ   1488 core   1664  1.12
+6b W64 ACE                       FZ   1664 core   1856  1.12
+6b W128 ACE                      FZ   3008 core   3392  1.13
+within 10%: 57, beyond: 33
+=== H (86 values on the FZ-10, 18 rows on the core)
+W2 H1                            FZ    560 core    544  0.97
+W2 H2                            FZ    736 core    704  0.96
+W2 H4                            FZ   1104 core   1072  0.97
+W2 H8                            FZ   1888 core   1744  0.92
+W2 H16                           FZ   3408 core   3120  0.92
+W2 H60                           FZ   3040 core   2768  0.91
+W2 H120                          FZ   5984 core   5344  0.89
+W4 H1                            FZ    592 core    624  1.05
+W4 H2                            FZ    784 core    896  1.14
+W4 H4                            FZ   1216 core   1472  1.21
+W4 H8                            FZ   2080 core   2624  1.26
+W4 H16                           FZ   1024 core   1296  1.27
+W4 H60                           FZ   3376 core   4432  1.31
+W4 H120                          FZ   6688 core   9296  1.39
+W8 H1                            FZ    720 core    672  0.93
+W8 H2                            FZ    944 core    992  1.05
+W8 H4                            FZ   1488 core   1632  1.10
+W8 H8                            FZ    720 core    832  1.16
+W8 H16                           FZ   1232 core   1472  1.19
+W8 H60                           FZ   4064 core   5200  1.28
+W8 H120                          FZ   8544 core  10704  1.25
+W16 H1                           FZ    864 core    848  0.98
+W16 H2                           FZ   1328 core   1344  1.01
+W16 H4                           FZ    640 core    672  1.05
+W16 H8                           FZ   1104 core   1184  1.07
+W16 H16                          FZ   2048 core   2208  1.08
+W16 H60                          FZ   7296 core   8496  1.16
+W16 H120                         FZ   3616 core   3936  1.09
+W32 H1                           FZ   1248 core   1200  0.96
+W32 H2                           FZ    624 core    608  0.97
+W32 H4                           FZ   1056 core   1024  0.97
+W32 H8                           FZ   1952 core   1888  0.97
+W32 H16                          FZ   3696 core   3632  0.98
+W32 H60                          FZ   3408 core   3376  0.99
+W32 H120                         FZ   6848 core   6704  0.98
+W2 H1 ACE                        FZ    576 core    544  0.94
+W2 H2 ACE                        FZ    656 core    656  1.00
+W2 H4 ACE                        FZ    880 core    944  1.07
+W2 H8 ACE                        FZ   1376 core   1520  1.10
+W2 H16 ACE                       FZ   2528 core   2688  1.06
+W2 H60 ACE                       FZ   2368 core   2368  1.00
+W2 H120 ACE                      FZ   4608 core   4528  0.98
+W4 H1 ACE                        FZ    592 core    624  1.05
+W4 H2 ACE                        FZ    672 core    848  1.26
+W4 H4 ACE                        FZ    960 core   1216  1.27
+W4 H8 ACE                        FZ   1632 core   2016  1.24
+W4 H16 ACE                       FZ    832 core   1008  1.21
+W4 H60 ACE                       FZ   2656 core   3168  1.19
+W4 H120 ACE                      FZ   5280 core   6208  1.18
+W8 H1 ACE                        FZ    720 core    672  0.93
+W8 H2 ACE                        FZ    880 core    928  1.05
+W8 H4 ACE                        FZ   1328 core   1408  1.06
+W8 H8 ACE                        FZ    608 core    672  1.11
+W8 H16 ACE                       FZ    992 core   1168  1.18
+W8 H60 ACE                       FZ   3056 core   3840  1.26
+W8 H120 ACE                      FZ   6000 core   7632  1.27
+W16 H1 ACE                       FZ    848 core    848  1.00
+W16 H2 ACE                       FZ   1040 core   1216  1.17
+W16 H4 ACE                       FZ    512 core    592  1.16
+W16 H8 ACE                       FZ    832 core    992  1.19
+W16 H16 ACE                      FZ   1472 core   1792  1.22
+W16 H60 ACE                      FZ   5040 core   6304  1.25
+W16 H120 ACE                     FZ   2560 core   3184  1.24
+W32 H1 ACE                       FZ   1264 core   1200  0.95
+W32 H2 ACE                       FZ    480 core    560  1.17
+W32 H4 ACE                       FZ    784 core    912  1.16
+W32 H8 ACE                       FZ   1392 core   1664  1.20
+W32 H16 ACE                      FZ   2576 core   3104  1.20
+W32 H60 ACE                      FZ   2432 core   2864  1.18
+W32 H120 ACE                     FZ   4736 core   5616  1.19
+contig W4                        FZ  12496 core  12032  0.96
+contig W8                        FZ   3952 core   3648  0.92
+contig W12                       FZ   4816 core   4384  0.91
+contig W16                       FZ   6896 core   6208  0.90
+contig W20                       FZ   8512 core   7008  0.82
+contig W24                       FZ  10720 core   9504  0.89
+contig W28                       FZ  11728 core  10400  0.89
+contig W32                       FZ  13808 core  12240  0.89
+contig W4 ACE                    FZ   7856 core   7680  0.98
+contig W8 ACE                    FZ   2800 core   3104  1.11
+contig W12 ACE                   FZ   3440 core   4016  1.17
+contig W16 ACE                   FZ   4832 core   5488  1.14
+contig W20 ACE                   FZ   5456 core   6496  1.19
+contig W24 ACE                   FZ   6944 core   8032  1.16
+contig W28 ACE                   FZ   7632 core   9568  1.25
+contig W32 ACE                   FZ   9504 core  10992  1.16
+within 10%: 40, beyond: 46
+=== Q (64 values on the FZ-10, 16 rows on the core)
+none 6b                          FZ  10832 core   9968  0.92
+none 6b ACE                      FZ   6992 core   8816  1.26
+none 16b                         FZ  16304 core  14240  0.87
+none 16b ACE                     FZ  11344 core  13232  1.17
+1:1 6b                           FZ   8960 core   6160  0.69
+1:1 6b ACE                       FZ   5248 core   5216  0.99
+1:1 16b                          FZ  13040 core  10944  0.84
+1:1 16b ACE                      FZ   9280 core   9696  1.04
+2:2 6b                           FZ   9056 core   6128  0.68
+2:2 6b ACE                       FZ   5296 core   5184  0.98
+2:2 16b                          FZ  13040 core  11040  0.85
+2:2 16b ACE                      FZ   9280 core   9376  1.01
+4:4 6b                           FZ   8592 core   6144  0.72
+4:4 6b ACE                       FZ   5392 core   5056  0.94
+4:4 16b                          FZ  13040 core  10992  0.84
+4:4 16b ACE                      FZ   9328 core   9360  1.00
+8:8 6b                           FZ   7968 core   6224  0.78
+8:8 6b ACE                       FZ   5472 core   5008  0.92
+8:8 16b                          FZ  12992 core  10528  0.81
+8:8 16b ACE                      FZ   7856 core   9184  1.17
+16:16 6b                         FZ   7808 core   6192  0.79
+16:16 6b ACE                     FZ   4688 core   5152  1.10
+16:16 16b                        FZ  13008 core  10544  0.81
+16:16 16b ACE                    FZ   7840 core   9200  1.17
+32:32 6b                         FZ   7824 core   6096  0.78
+32:32 6b ACE                     FZ   4624 core   4848  1.05
+32:32 16b                        FZ  12832 core  10640  0.83
+32:32 16b ACE                    FZ   7968 core   8672  1.09
+1op/4 6b                         FZ   6704 core   4448  0.66
+1op/4 6b ACE                     FZ   4240 core   3728  0.88
+1op/4 16b                        FZ  11312 core   9312  0.82
+1op/4 16b ACE                    FZ   7248 core   7104  0.98
+1tr/4 6b                         FZ   9696 core   7824  0.81
+1tr/4 6b ACE                     FZ   6128 core   6336  1.03
+1tr/4 16b                        FZ  14672 core  12656  0.86
+1tr/4 16b ACE                    FZ  10144 core  11440  1.13
+rand50 6b                        FZ   9056 core   6096  0.67
+rand50 6b ACE                    FZ   5296 core   5248  0.99
+rand50 16b                       FZ  13088 core  11088  0.85
+rand50 16b ACE                   FZ   9360 core  10048  1.07
+all 6b                           FZ   6672 core   3472  0.52
+all 6b ACE                       FZ   3328 core   1920  0.58
+all 16b                          FZ   9040 core   6272  0.69
+all 16b ACE                      FZ   5424 core   4672  0.86
+row 1/2 6b                       FZ   8896 core   6400  0.72
+row 1/2 6b ACE                   FZ   6576 core   5648  0.86
+row 1/2 16b                      FZ  12672 core  10640  0.84
+row 1/2 16b ACE                  FZ  12384 core   9696  0.78
+row op 1/4 6b                    FZ   7552 core   4928  0.65
+row op 1/4 6b ACE                FZ   4720 core   3728  0.79
+row op 1/4 16b                   FZ  10704 core   8816  0.82
+row op 1/4 16b ACE               FZ  10032 core   6976  0.70
+6b none scale .5                 FZ   5648 core   6704  1.19
+6b none scale .5 ACE             FZ   4064 core   3872  0.95
+6b none scale 2                  FZ   7760 core   7648  0.99
+6b none scale 2 ACE              FZ   6144 core   5440  0.89
+6b 8:8 scale .5                  FZ   4880 core   6704  1.37
+6b 8:8 scale .5 ACE              FZ   3424 core   3504  1.02
+6b 8:8 scale 2                   FZ   7280 core   5696  0.78
+6b 8:8 scale 2 ACE               FZ   4480 core   3392  0.76
+6b all scale .5                  FZ   4288 core   6672  1.56
+6b all scale .5 ACE              FZ   2448 core   3360  1.37
+6b all scale 2                   FZ   6544 core   5664  0.87
+6b all scale 2 ACE               FZ   3280 core   2896  0.88
+within 10%: 18, beyond: 46
