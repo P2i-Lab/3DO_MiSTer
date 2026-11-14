@@ -386,22 +386,27 @@ endmodule
 //  Request 01 42 00 00 00 00 00 00 00; GunCon answer FF 63 5A, buttons (2 bytes, active low:
 //  bit 13 trigger, bit 3 A, bit 14 B), X (2 bytes), Y (2 bytes).
 //
-//  The aim given to the 3DO gun: dot = (X - XOFS) x 12.27 / 8, line = Y - YOFS, from the sync
-//  of the core: the horizontal sync starts 121 dots (79 GunCon clocks) before dot 0 of the
-//  next line, the vertical sync starts 22 lines before the first picture line. Not tried on
-//  a real GunCon yet: XOFS and YOFS may need a few clocks / lines more for the delay of
-//  the GunCon's sensor.
+//  The aim given to the 3DO gun: dot = (X - XOFS) x 12.27 / 8 + XDOT + 4 x XADJ, line = Y - YOFS,
+//  from the sync of the core: the horizontal sync starts 121 dots (79 GunCon clocks) before dot 0
+//  of the next line, the vertical sync starts 22 lines before the first picture line. On a real
+//  GunCon (2026-11-14, Namco GunCon on a JVC CRT) the crosshair sat 18 pixels left of the aim with
+//  that alone; 18 pixels more (XDOT = 36 dots, about 2.9 us: the GunCon counts from a little later
+//  than the start of the sync) put it on the aim at the centre and at both edges, and the line was
+//  right. XADJ (menu: GunCon X adjust) moves the aim from there, and with it the crosshair and the
+//  3DO gun counter, by 2 pixels (4 dots) a step, -32 to +30 pixels.
 //============================================================================
 module P3DO_GUNCON
 #(
 	parameter [15:0] XOFS = 16'd79,
-	parameter [15:0] YOFS = 16'd22
+	parameter [15:0] YOFS = 16'd22,
+	parameter  [7:0] XDOT = 8'd36
 )
 (
 	input             CLK,          // 50 MHz
 	input             RST,
 	input             ENABLE,
 	input             VBL_N,        // any clock domain: the reading starts with the vertical blank
+	input       [4:0] XADJ,         // horizontal adjustment, signed: XADJ x 2 pixels (-16..15 -> -32..+30)
 
 	input       [6:0] USER_IN,
 	output      [5:0] USER_OUT,     // pins 0-5 (pin 6, the sync, is sent by the top level)
@@ -447,11 +452,12 @@ module P3DO_GUNCON
 	wire [15:0] gx = {rxb[6], rxb[5]};
 	wire [15:0] gy = {rxb[8], rxb[7]};
 	wire        is_guncon = rxb[1] == 8'h63 && rxb[2] == 8'h5A;
-	wire        light = !(gx == 16'd1 && gy == 16'd10) && gx >= XOFS && gy >= YOFS;
-	wire [15:0] gx0 = gx - XOFS;
-	wire [26:0] dot = gx0 * 11'd1571;		// x 12.2727 / 8 = 1571 / 1024
+	wire        light = !(gx == 16'd1 && gy == 16'd10) && gy >= YOFS;
+	wire signed [17:0] gx0 = $signed({2'b00, gx}) - $signed({2'b00, XOFS});
+	wire signed [29:0] dotm = gx0 * $signed(30'd1571);	// x 12.2727 / 8 = 1571 / 1024
+	wire signed [19:0] dot = $signed(dotm[29:10]) + $signed({12'd0, XDOT}) + $signed({{13{XADJ[4]}}, XADJ, 2'b00});	// + XDOT + XADJ x 2 pixels (4 dots)
 	wire [15:0] line = gy - YOFS;
-	wire        on = light && dot[26:10] < 17'd640 && line < 16'd240;
+	wire        on = light && !dot[19] && dot < $signed(20'd640) && line < 16'd240;
 
 	always @(posedge CLK) begin
 		if (RST || !ENABLE) begin
@@ -542,7 +548,7 @@ module P3DO_GUNCON
 					att <= 1'b0;
 					PRESENT[port] <= is_guncon;
 					if (!port) begin
-						AIM0_X <= dot[19:10];
+						AIM0_X <= dot[9:0];
 						AIM0_Y <= line[7:0];
 						AIM0_ON <= is_guncon && on;
 						BTN0 <= is_guncon ? {btn[14], btn[3], btn[13]} : 3'b000;
@@ -551,7 +557,7 @@ module P3DO_GUNCON
 						st <= S_PORT;
 					end
 					else begin
-						AIM1_X <= dot[19:10];
+						AIM1_X <= dot[9:0];
 						AIM1_Y <= line[7:0];
 						AIM1_ON <= is_guncon && on;
 						BTN1 <= is_guncon ? {btn[14], btn[3], btn[13]} : 3'b000;

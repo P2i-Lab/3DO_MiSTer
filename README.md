@@ -38,7 +38,12 @@ the 3DO mouse are off while guns are used. Crosshairs: gun 1 red, gun 2 green (I
 With Gun input "GunCon (SNAC)", the guns are Namco GunCons (PlayStation) on a PlayStation SNAC adapter (port 1:
 gun 1, port 2: gun 2), aimed at a CRT fed by the analog video output (15 kHz). The core sends the composite sync
 to the GunCon on pin 6 of the adapter, as the PlayStation core does. As with the real 3DO gun, a GunCon sees
-nothing where the picture is dark.
+nothing where the picture is dark. GunCon X adjust moves the aim of both GunCons left (negative) or right
+(positive) by 2 pixels a step, from -32 to +30 pixels. 0 is the place measured with a real GunCon on a CRT (the
+crosshair on the aim at the centre and at both edges); another GunCon or screen may want a step or two: aim at
+a precise point of a still bright picture (the bullseye of a game's calibration screen, say) and pick the value
+that puts the crosshair on it. The 3DO gun reports the adjusted aim, so games see the same shift (their own
+calibration takes care of any offset).
 
 Gun sensor (emulated guns): "Ideal" sees the picture wherever the gun is aimed; "Picture" sees, as the real 3DO
 gun, only the bright places of the picture within its field (a disc about 25 lines across around the aim): the gun

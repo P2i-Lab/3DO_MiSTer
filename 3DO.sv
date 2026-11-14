@@ -290,7 +290,7 @@ module emu
 	// 0         1         2         3          4         5         6   
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X     XXXX  XXXXXXXXXXX          XXXXXXXXXXXXXXXX                
+	// X     XXXX  XXXXXXXXXXX          XXXXXXXXXXXXXXXXXXXXX           
 	
 	`include "build_id.v"
 	localparam CONF_STR = {
@@ -322,6 +322,7 @@ module emu
 		"D3P2O[42],Gun 1 aim,Joy 1,Mouse;",
 		"D4P2O[43],Gun 2 aim,Joy 2,Mouse;",
 		"D3P2O[45:44],Gun crosshair,Small,Medium,Big,None;",
+		"D6P2O[52:48],GunCon X adjust (px),0,+2,+4,+6,+8,+10,+12,+14,+16,+18,+20,+22,+24,+26,+28,+30,-32,-30,-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2;",
 		"D3P2O[47],Gun sensor,Ideal,Picture;",
 
 		"P3,Hardware;",
@@ -342,7 +343,7 @@ module emu
 	};
 
 	wire [63:0] status;
-	wire [15:0] status_menumask = {10'd0,arcade_on,gun_one,gun_off,mouse_mask,stick_mask,~bk_ena};
+	wire [15:0] status_menumask = {9'd0,~gun_snac,arcade_on,gun_one,gun_off,mouse_mask,stick_mask,~bk_ena};
 	
 	wire  [1:0] buttons;
 	wire [15:0] joystick_0,joystick_1,joystick_2,joystick_3,joystick_4;
@@ -862,6 +863,7 @@ module emu
 		.RST(reset),
 		.ENABLE(gun_snac),
 		.VBL_N(VBL_N),
+		.XADJ(status[52:48]),	//GunCon X adjust: 2 pixels a step
 		.USER_IN(USER_IN),
 		.USER_OUT(gc_user_out),
 		.PRESENT(),

@@ -47,6 +47,7 @@ module tb_lightgun;
 
 	//------------------------------------------------------------------ GunCon on the SNAC port
 	reg         gc_en = 0;
+	reg  [ 4:0] gc_xadj = 0;
 	reg         gc_vbl_n = 1;
 	wire [ 5:0] uo;
 	reg         dat_o = 1, ack_o = 1;
@@ -59,7 +60,7 @@ module tb_lightgun;
 
 	P3DO_GUNCON guncon
 	(
-		.CLK(clk), .RST(rst), .ENABLE(gc_en), .VBL_N(gc_vbl_n),
+		.CLK(clk), .RST(rst), .ENABLE(gc_en), .VBL_N(gc_vbl_n), .XADJ(gc_xadj),
 		.USER_IN(ui), .USER_OUT(uo),
 		.PRESENT(gc_present),
 		.AIM0_X(gc_x0), .AIM0_Y(gc_y0), .AIM0_ON(gc_on0), .BTN0(gc_b0),
@@ -405,14 +406,14 @@ module tb_lightgun;
 		a0x = 320; a0y = 120; a0on = 0; check_sense(0, 0, 0, 0, "aim off the picture");
 		a0on = 1; pic_mode = 0; num = 2;
 
-		// GunCon: port 1 seen at X = 79 + 245 (dot 375), Y = 22 + 100 (line 100) with the trigger; port 2 unplugged
+		// GunCon: port 1 seen at X = 79 + 245 (dot 375 + XDOT 36 = 411), Y = 22 + 100 (line 100) with the trigger; port 2 unplugged
 		m_plug[0] = 1; m_plug[1] = 0;
 		m_btn[0] = 16'h2000; m_x[0] = 16'd324; m_y[0] = 16'd122;
 		m_btn[1] = 16'h0000; m_x[1] = 16'd1; m_y[1] = 16'd10;
 		gc_en = 1;
 		#100000;
 		gc_read();
-		gc_check(2'b01, 1, 375, 100, 3'b001, 0, 3'b000, "trigger, port 2 unplugged");
+		gc_check(2'b01, 1, 411, 100, 3'b001, 0, 3'b000, "trigger, port 2 unplugged");
 		for (int b = 0; b < 9; b++)
 			if (m_cmds[0][b] != (b == 0 ? 8'h01 : b == 1 ? 8'h42 : 8'h00)) begin
 				$display("TB error GunCon: command byte %0d is %02X", b, m_cmds[0][b]);
@@ -421,7 +422,7 @@ module tb_lightgun;
 		begin
 			longint sum;
 			integer c;
-			sum = longint'(100 + 11) * 325222 + longint'(375) * 408 + 60700;
+			sum = longint'(100 + 11) * 325222 + longint'(411) * 408 + 60700;
 			c = int'(sum >> 9) * 2;
 			if (ext_data != {8'h4D, 8'h80 | 8'(c >> 19), 8'(c >> 11), 8'(c >> 3), 3'(c), 5'd24}) begin
 				$display("TB error GunCon gun record %010X, expected counter %0d", ext_data, c);
@@ -433,18 +434,34 @@ module tb_lightgun;
 		// port 1: B (reload); port 2 plugged, seeing nothing (X 1, Y 10), button A
 		m_btn[0] = 16'h4000; m_plug[1] = 1; m_btn[1] = 16'h0008;
 		gc_read();
-		gc_check(2'b11, 1, 375, 100, 3'b100, 0, 3'b010, "B on 1, nothing seen + A on 2");
+		gc_check(2'b11, 1, 411, 100, 3'b100, 0, 3'b010, "B on 1, nothing seen + A on 2");
 		if (ext_data != 40'h4D80000000) begin
 			$display("TB error GunCon reload record %010X", ext_data);
 			errors++;
 		end
 		else $display("TB GunCon 3DO gun record with B (reload): %010X", ext_data);
-		// edges of the picture: X 79 (dot 0), 496 (dot 639), 497 (off), Y 22 + 239 (line 239), 22 + 240 (off)
-		m_btn[0] = 16'h0000; m_x[0] = 16'd79; m_y[0] = 16'd261;
+		// horizontal adjustment from the menu (XADJ, signed, 2 pixels = 4 dots a step)
+		m_btn[0] = 16'h0000; m_x[0] = 16'd324; m_y[0] = 16'd122;
+		gc_xadj = 5'd5;
+		gc_read(); gc_check(2'b11, 1, 431, 100, 3'b000, 0, 3'b010, "adjust +10 px");
+		gc_xadj = 5'b11101;
+		gc_read(); gc_check(2'b11, 1, 399, 100, 3'b000, 0, 3'b010, "adjust -6 px");
+		gc_xadj = 5'd1; m_x[0] = 16'd53;
+		gc_read(); gc_check(2'b11, 1, 0, 100, 3'b000, 0, 3'b010, "adjust +2 px: X 53 is dot 0");
+		gc_xadj = 5'b11111; m_x[0] = 16'd56;
+		gc_read(); gc_check(2'b11, 0, 0, 0, 3'b000, 0, 3'b010, "adjust -2 px: X 56 is off");
+		gc_xadj = 5'b10000; m_x[0] = 16'd496;
+		gc_read(); gc_check(2'b11, 1, 611, 100, 3'b000, 0, 3'b010, "adjust -32 px: X 496 is dot 611");
+		gc_xadj = 5'd0;
+		// edges of the picture (XDOT 36): X 56 (dot 0), 55 (off), 472 (dot 638), 473 (dot 640: off),
+		// Y 22 + 239 (line 239), 22 + 240 (off)
+		m_btn[0] = 16'h0000; m_x[0] = 16'd56; m_y[0] = 16'd261;
 		gc_read(); gc_check(2'b11, 1, 0, 239, 3'b000, 0, 3'b010, "dot 0, line 239");
-		m_x[0] = 16'd496; m_y[0] = 16'd22;
-		gc_read(); gc_check(2'b11, 1, 639, 0, 3'b000, 0, 3'b010, "dot 639, line 0");
-		m_x[0] = 16'd497;
+		m_x[0] = 16'd55;
+		gc_read(); gc_check(2'b11, 0, 0, 0, 3'b000, 0, 3'b010, "X 55: off");
+		m_x[0] = 16'd472; m_y[0] = 16'd22;
+		gc_read(); gc_check(2'b11, 1, 638, 0, 3'b000, 0, 3'b010, "dot 638, line 0");
+		m_x[0] = 16'd473;
 		gc_read(); gc_check(2'b11, 0, 0, 0, 3'b000, 0, 3'b010, "dot 640: off");
 		m_x[0] = 16'd200; m_y[0] = 16'd262;
 		gc_read(); gc_check(2'b11, 0, 0, 0, 3'b000, 0, 3'b010, "line 240: off");
