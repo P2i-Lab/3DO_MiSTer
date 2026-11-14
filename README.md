@@ -32,7 +32,7 @@ This fork of [srg320's 3DO core](https://github.com/MiSTer-devel/3DO_MiSTer) is 
 
 ### Measured on a real FZ-10
 
-Homebrew benchmark discs (P2i Lab bench 2.3 to 3.6) measured about 2500 cel engine times, the matrix math, the ARM CPU, memory and video timing, the CD drive, the control port and the 3DO light gun. A report with all the values is being prepared for this repository.
+Homebrew benchmark discs (P2i Lab bench 2.3 to 3.6) measured about 2500 cel engine times, the matrix math, the ARM CPU, memory and video timing, the CD drive, the control port and the 3DO light gun. All the values, our reading of them and the bench sources are in [fz10-measurements](https://github.com/P2i-Lab/3DO_MiSTer/tree/report/fz10-measurements) on the `report` branch; the disc image is attached to the release [bench-disc-3.6](https://github.com/P2i-Lab/3DO_MiSTer/releases/tag/bench-disc-3.6).
 
 ### Test branches
 
