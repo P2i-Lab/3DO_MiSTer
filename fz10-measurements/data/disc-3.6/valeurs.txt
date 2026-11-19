@@ -53,7 +53,8 @@ CG   5040   3840   6912   4816
 SYNC SPREAD 944  >64:24 JUMPS:0
 Grid R, 5 values per row: 8 cels of 64x64 centred, rotated by 0 2 5 10 20 30 45 60 90 degrees, each angle without then with ACE.
   0-53 8 bits coded at scale 0.71 (0-17), 1 (18-35), 1.41 (36-53); 54-71 16 bits at scale 1.
-  Read on the 2nd photo, doubtful digits enlarged and compared with the unambiguous 6s and 8s of the same photo (R7 3rd value 6656), all multiples of 16.
+  Read on the 2nd photo, doubtful digits enlarged and compared with the unambiguous 6s and 8s of the same photo, all multiples of 16.
+  R7 3rd value first read 6656, corrected to 8656 on 19 November 2026: disc 3.7 measures this case at 8640 (read on the screen) and the 1st photo shows an 8.
 R0   4304   3392   4304   3664   4352
 R1   3616   4304   3536   4384   3808
 R2   4464   4048   4576   4224   4704
@@ -61,7 +62,7 @@ R3   4368   4816   4464   5888   4448
 R4   5856   4208   5952   4672   5920
 R5   4624   5920   4880   6064   5360
 R6   6448   5696   6384   6096   6720
-R7   6544   9344   6656   9648   7984
+R7   6544   9344   8656   9648   7984
 R8  10240   8080  11024   7744  11680
 R9   7552  12112   7696  12128   7584
 RA  11984   8000   9456   8992   7504

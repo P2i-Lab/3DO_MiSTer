@@ -86,7 +86,7 @@ Each point gives the file it comes from; the file has the full figures.
 
 ## Our test cores against these values
 
-The comparison files give the cores' values beside the FZ-10's, page by page. On disc 3.6 (1690 cel times), 1302 times are within 10 % of the FZ-10 on our core 1113, and 1323 on 1114 (simulated build x17c). The mean gap is 7.5 % and 7.1 %. Times more than 10 % too fast drop from 70 to 48 (`disc-3.6/comparaison-coeur-1113.txt` and `disc-3.6/comparaison-coeur-1114.txt`).
+The comparison files give the cores' values beside the FZ-10's, page by page. On disc 3.6 (1690 cel times), 1303 times are within 10 % of the FZ-10 on our core 1113, and 1324 on 1114 (simulated build x17c). The mean gap is 7.5 % and 7.1 %. Times more than 10 % too fast drop from 70 to 48 (`disc-3.6/comparaison-coeur-1113.txt` and `disc-3.6/comparaison-coeur-1114.txt`).
 
 Still clearly off on our cores: some reduced and rotated cels, narrow cels with ACE, and the control port timing above.
 
