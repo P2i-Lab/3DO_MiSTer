@@ -2449,6 +2449,9 @@ module MADAM_SE
 	bit          DST_READ;
 	bit          DST_LAST_A,DST_LAST_B,DST_SUSPEND;
 	bit  [ 3: 0] DST_BURST_CNT;	//experiment ex5: pixels written in this draw burst
+	bit          EX16_BURST_RD;	//ex16: this draw burst has read the frame buffer (blended pixels)
+	bit          EX16_STRETCH;	//ex16: a source pixel of this cel covers more than 1.125 screen pixels (TSK_AREA, 16 fractional bits)
+	always @(posedge CLK) if (EN && CE_R) EX16_STRETCH <= TSK_AREA > 33'h000012000;
 	always @(posedge CLK or negedge RST_N) begin	
 		bit  [ 3: 0] G1,G2;
 		bit  [23: 2] BASE;
@@ -2505,8 +2508,9 @@ module MADAM_SE
 			if (DRAW_B_FF  && (BUS_STATE == CFB_INIT0 || BUS_STATE_FF == CFB_INIT1 || BUS_STATE_FF == CFB_WRITE1 || BUS_STATE_FF == CFB_READ1)) begin DST_ADDR_B <= DST_ADDR_B_NEW; DST_PB_B <= &DST_ADDR_B_NEW[10:2]; end
 			if (SPR_NEXT) {DST_PB_A,DST_PB_B} <= '0;	//a page end left by the previous cel (by an engine this cel does not use) would stop every burst after one pixel
 			DST_READ <= DOLO_CYCLE;
-			if (BUS_STATE_FF == CFB_WRITE0 && (XY_FIFO_A_EMPTY || DST_PB_A || DST_PB_B || (DST_BURST_CNT == 4'd15 && !SCOB_FLAG.PACKED)) && !DST_LAST_A) DST_LAST_A <= 1;	//experiment ex5: 16 pixels at most
+			if (BUS_STATE_FF == CFB_WRITE0 && (XY_FIFO_A_EMPTY || DST_PB_A || DST_PB_B || (DST_BURST_CNT == 4'd15 && !SCOB_FLAG.PACKED && (EX16_BURST_RD || !EX16_STRETCH))) && !DST_LAST_A) DST_LAST_A <= 1;	//experiment ex5: 16 pixels at most; ex16: not for a stretched solid cel
 			if (BUS_STATE_FF == CFB_INIT0) DST_BURST_CNT <= 4'd0; else if (BUS_STATE_FF == CFB_WRITE0 && DST_BURST_CNT != 4'd15) DST_BURST_CNT <= DST_BURST_CNT + 4'd1;
+			if (BUS_STATE_FF == CFB_INIT0) EX16_BURST_RD <= 1'b0; else if (BUS_STATE_FF == CFB_READ0) EX16_BURST_RD <= 1'b1;	//ex16
 			if (((DRAW_A_FF && DST_ADDR_A_NEW[23:11] != DST_PAGE_A) || (DRAW_B_FF && DST_ADDR_B_NEW[23:11] != DST_PAGE_B)) && FB_IN_DRAM && !DST_LAST_A) DST_LAST_A <= 1;
 			if (DST_LAST_A && !DST_LAST_B) DST_LAST_B <= 1;
 			if (CFB_SUSPEND && BUS_STATE_FF == CFB_WRITE0 && !DST_SUSPEND) begin DST_SUSPEND <= 1; end
