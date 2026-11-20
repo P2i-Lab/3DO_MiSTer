@@ -616,6 +616,10 @@ module emu
 	wire         LSC;
 	wire         LQSF;
 	wire [ 3: 0] LCODE;
+	wire         CFB_RD;
+	wire         SPORT_CPU;
+	wire         VRAM_LSPB,VRAM_RSPB;
+	wire         VRAM_SP_BUSY = VRAM_LSPB | VRAM_RSPB;	//the VRAM is busy with a copy or a flash write of the CPU
 	wire [23: 2] RA;
 	wire         RRAS0_N;
 	wire         RRAS2_N;
@@ -734,6 +738,9 @@ module emu
 		.LSC(LSC),
 		.LQSF(LQSF),
 		.LCODE(LCODE),
+		.CFB_RD(CFB_RD),
+		.SPORT_CPU(SPORT_CPU),
+		.VRAM_SP_BUSY(VRAM_SP_BUSY),
 		.RA(RA),
 		.RRAS0_N(RRAS0_N),
 		.RRAS2_N(RRAS2_N),
@@ -1003,6 +1010,9 @@ module emu
 	end
 	
 	wire [31:0] sdr_dout;
+	wire        sdr_rd_wait;
+	wire        sdr_row_wait;
+	wire        sdr_mem_wait;		//sdr_rd_wait | sdr_row_wait (the two stay for the probes of the simulator)
 	sdram sdram1
 	(
 		.SDRAM_CLK(SDRAM_CLK),
@@ -1021,41 +1031,112 @@ module emu
 		.init(sdram_init),
 		.sync(MCLK_CE),
 	
-		.laddr(sysmem_mode == 2'b10 ? {~LRAS3_N,LA[21:2]} : sysmem_mode == 2'b01 ? {1'b0,LA[21:2]} : {2'b00,~LRAS3_N,LA[19:2]}),
+		.laddr(!LRAS0_N ? {3'b000,LA[19:2]} : sysmem_mode == 2'b10 ? {~LRAS3_N,LA[21:2]} : sysmem_mode == 2'b01 ? {1'b0,LA[21:2]} : {2'b00,~LRAS3_N,LA[19:2]}),
 		.lwe  (~LWE_N),
-		.lras(sysmem_mode == 2'b01 ? !LRAS2_N : !LRAS2_N || !LRAS3_N),
+		.lras((sysmem_mode == 2'b01 ? !LRAS2_N : !LRAS2_N || !LRAS3_N) || !LRAS0_N),
+		.lvram(!LRAS0_N),
 		.lcode(LCODE),
 		
-		.raddr(sysmem_mode == 2'b10 ? {~RRAS3_N,RA[21:2]} : sysmem_mode == 2'b01 ? {1'b0,RA[21:2]} : {2'b00,~RRAS3_N,RA[19:2]}),
+		.raddr(!RRAS0_N ? {3'b000,RA[19:2]} : sysmem_mode == 2'b10 ? {~RRAS3_N,RA[21:2]} : sysmem_mode == 2'b01 ? {1'b0,RA[21:2]} : {2'b00,~RRAS3_N,RA[19:2]}),
 		.rwe  (~RWE_N),
-		.rras(sysmem_mode == 2'b01 ? !RRAS2_N : !RRAS2_N || !RRAS3_N),
+		.rras((sysmem_mode == 2'b01 ? !RRAS2_N : !RRAS2_N || !RRAS3_N) || !RRAS0_N),
+		.rvram(!RRAS0_N),
 		.rcode(RCODE),
-		
+		.cfb_rd(CFB_RD),
+		.rd_wait(sdr_rd_wait),
+		.paused(pause),
+		.row_wait(sdr_row_wait),
+		.mem_wait(sdr_mem_wait),
+
 		.din  (RAM_DO),
 		.dout(sdr_dout),
 		
-		.rfs(!LRAS0_N || !RRAS0_N )
+		.rfs(!LRAS0_N || !RRAS0_N ),
+		
+		.v_freeze(vsd_freeze),
+		.v_frozen(vsd_pause),
+		.v_lreq(vsd_lreq),
+		.v_lwe(vsd_lwe),
+		.v_laddr(vsd_laddr),
+		.v_lcount(vsd_lcount),
+		.v_ld(vsd_ld),
+		.v_lack(vsd_lack),
+		.v_lte(vsd_lte),
+		.v_rreq(vsd_rreq),
+		.v_rwe(vsd_rwe),
+		.v_raddr(vsd_raddr),
+		.v_rcount(vsd_rcount),
+		.v_rd(vsd_rd),
+		.v_rack(vsd_rack),
+		.v_rte(vsd_rte),
+		.v_q(vsd_q),
+
+		.v_ldirty(vsd_ldirty),
+		.v_rdirty(vsd_rdirty),
+		.v_lwbq(vsd_lwbq),
+		.v_lwbq_row(vsd_lwbq_row),
+		.v_rwbq(vsd_rwbq),
+		.v_rwbq_row(vsd_rwbq_row),
+		.v_lwbp(vsd_lwbp),
+		.v_lwbrow(vsd_lwbrow),
+		.v_rwbp(vsd_rwbp),
+		.v_rwbrow(vsd_rwbrow),
+		.v_lcr(vsd_lcr),
+		.v_lcr_a(vsd_lcr_a),
+		.v_lcr_v(vsd_lcr_v),
+		.v_lcr_q(vsd_lcr_q),
+		.v_rcr(vsd_rcr),
+		.v_rcr_a(vsd_rcr_a),
+		.v_rcr_v(vsd_rcr_v),
+		.v_rcr_q(vsd_rcr_q)
 	);
 	
+	//The console stops at the end of a memory cycle (the slots of sdram.sv follow them) while the SDRAM serves the VRAM serial port
+	wire         vsd_freeze;
+	reg          vsd_pause = 0;
+	always @(posedge clk_sys) begin
+		if (reset) vsd_pause <= 0;
+		else if (CE_F) begin
+			if (!vsd_freeze) vsd_pause <= 0;
+			else if (!MCLK_CE || pause_mem) vsd_pause <= 1;
+		end
+	end
+	wire         vsd_lreq,vsd_lwe,vsd_lack,vsd_lte;
+	wire [17: 0] vsd_laddr;
+	wire [ 8: 0] vsd_lcount;
+	wire [31: 0] vsd_ld;
+	wire         vsd_rreq,vsd_rwe,vsd_rack,vsd_rte;
+	wire [17: 0] vsd_raddr;
+	wire [ 8: 0] vsd_rcount;
+	wire [31: 0] vsd_rd;
+	wire [31: 0] vsd_q;
+	wire [511:0] vsd_ldirty,vsd_rdirty;		//VRAM rows held only in the row caches (copied or filled by the CPU)
+	wire         vsd_lwbq,vsd_rwbq;			//a main-bus read waits for such a row to be written to the SDRAM
+	wire [ 8: 0] vsd_lwbq_row,vsd_rwbq_row;
+	wire         vsd_lwbp,vsd_rwbp;				//a dirty row is being written to the SDRAM: writes into it go there too
+	wire [ 8: 0] vsd_lwbrow,vsd_rwbrow;
+	wire         vsd_lcr,vsd_rcr,vsd_lcr_v,vsd_rcr_v;	//a main-bus read of a dirty row, taken from the row cache
+	wire [17: 0] vsd_lcr_a,vsd_rcr_a;
+	wire [15: 0] vsd_lcr_q,vsd_rcr_q;
 
-	bit  [31: 0] VRAM_Q;
+
 	bit          VRAM_LRDY,VRAM_RRDY;
-	bit  [31: 0] vram_bldata;
 	
-	P3DO_VRAM #(`USE_BRAM_BLOCKS_FOR_VRAM) vram_l
+	P3DO_VRAM vram_l
 	(
-		.CLK(clk_sys),
 		.CLK_MEM(clk_mem),
 		.RST_N(~reset),
 		
 		.A(LA[19:2]),
 		.D(RAM_DO[31:16]),
-		.Q(VRAM_Q[31:16]),
 		.RAS_N(LRAS0_N),
 		.CAS_N(LCAS_N),
 		.WE_N(LWE_N),
 		.OE_N(LOE_N),
 		.DSF1(LDSF),
+		.CPU_SP(SPORT_CPU),
+		.RDY(VRAM_LRDY),
+		.SP_BUSY(VRAM_LSPB),
 		
 		.SC(LSC),
 		.SE_N(0),
@@ -1063,37 +1144,41 @@ module emu
 		.QSF(LQSF),
 		.SRDY(VRAM_LSRDY),
 		
-		.RDY(VRAM_LRDY),
-		
-		.EQ(ddr_do[31:16]),
-		.ESADDR(ddr_bladdr),
-		.ESDATA(vram_bldata),
-		.ESWR(ddr_blwr),
-		.ESRD(ddr_blrd),
-		.ESFW(ddr_bfw),
-		.ESQ({ddr_bout[63:48],ddr_bout[31:16]}),
-		.ESTE(ddr_blte),
-		
-		.BRAM4_OFFS(BRAM4_OFFS),
-		.BRAM2_OFFS(BRAM2_OFFS),
-		.BRAM1_OFFS(BRAM1_OFFS)
+		.EREQ(vsd_lreq),
+		.EWE(vsd_lwe),
+		.EADDR(vsd_laddr),
+		.ECOUNT(vsd_lcount),
+		.EACK(vsd_lack),
+		.ETE(vsd_lte),
+		.EQ(vsd_q),
+		.ED(vsd_ld),
+
+		.DIRTY(vsd_ldirty),
+		.WBQ(vsd_lwbq),
+		.WBQ_ROW(vsd_lwbq_row),
+		.WBP(vsd_lwbp),
+		.WBR(vsd_lwbrow),
+		.CR(vsd_lcr),
+		.CR_A(vsd_lcr_a),
+		.CR_V(vsd_lcr_v),
+		.CR_Q(vsd_lcr_q)
 	);
 	
-	bit  [31: 0] vram_brdata;
-	P3DO_VRAM #(`USE_BRAM_BLOCKS_FOR_VRAM) vram_r
+	P3DO_VRAM vram_r
 	(
-		.CLK(clk_sys),
 		.CLK_MEM(clk_mem),
 		.RST_N(~reset),
 		
 		.A(RA[19:2]),
 		.D(RAM_DO[15:0]),
-		.Q(VRAM_Q[15:0]),
 		.RAS_N(RRAS0_N),
 		.CAS_N(RCAS_N),
 		.WE_N(RWE_N),
 		.OE_N(ROE_N),
 		.DSF1(RDSF),
+		.CPU_SP(SPORT_CPU),
+		.RDY(VRAM_RRDY),
+		.SP_BUSY(VRAM_RSPB),
 		
 		.SC(RSC),
 		.SE_N(0),
@@ -1101,23 +1186,27 @@ module emu
 		.QSF(RQSF),
 		.SRDY(VRAM_RSRDY),
 		
-		.RDY(VRAM_RRDY),
-		
-		.EQ(ddr_do[15:0]),
-		.ESADDR(ddr_braddr),
-		.ESDATA(vram_brdata),
-		.ESWR(ddr_brwr),
-		.ESRD(ddr_brrd),
-		.ESFW(),
-		.ESQ({ddr_bout[47:32],ddr_bout[15:0]}),
-		.ESTE(ddr_brte),
-		
-		.BRAM4_OFFS(BRAM4_OFFS),
-		.BRAM2_OFFS(BRAM2_OFFS),
-		.BRAM1_OFFS(BRAM1_OFFS)
+		.EREQ(vsd_rreq),
+		.EWE(vsd_rwe),
+		.EADDR(vsd_raddr),
+		.ECOUNT(vsd_rcount),
+		.EACK(vsd_rack),
+		.ETE(vsd_rte),
+		.EQ(vsd_q),
+		.ED(vsd_rd),
+
+		.DIRTY(vsd_rdirty),
+		.WBQ(vsd_rwbq),
+		.WBQ_ROW(vsd_rwbq_row),
+		.WBP(vsd_rwbp),
+		.WBR(vsd_rwbrow),
+		.CR(vsd_rcr),
+		.CR_A(vsd_rcr_a),
+		.CR_V(vsd_rcr_v),
+		.CR_Q(vsd_rcr_q)
 	);
 	
-	assign RAM_DI = !LRAS0_N || !RRAS0_N ? VRAM_Q : sdr_dout;
+	assign RAM_DI = sdr_dout;
 	assign PDI = !SRAMR_N ? (ddr_io_do>>{~PA[3:2],3'b000}) & 32'h000000FF : ddr_io_do;
 
 	
@@ -1132,19 +1221,7 @@ module emu
 	wire [15: 0] ddr_nvram_do;
 	wire         ddr_nvram_busy;
 	
-	wire [31: 0] ddr_do;
 	wire         ddr_busy;
-	wire [17: 0] ddr_bladdr,ddr_braddr;
-	wire         ddr_blwr,ddr_brwr;
-	wire         ddr_blrd,ddr_brrd;
-	wire         ddr_bfw;
-	wire [63: 0] ddr_bin = {vram_bldata[31:16],vram_brdata[31:16],vram_bldata[15:0],vram_brdata[15:0]};
-	wire [63: 0] ddr_bout;
-	wire         ddr_blte,ddr_brte;
-	wire         ddr_bbusy;
-	
-	wire         ddr_luse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && LA[19:2] >= ({BRAM4_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) || (`USE_BRAM_BLOCKS_FOR_VRAM && LA[19:2] >= ({BRAM2_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) || (LA[19:2] >= ({BRAM1_OFFS+0,16'h0000}>>2) && LA[19:2] <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (LA[19:2] >= (20'hFC000>>2)));
-	wire         ddr_ruse = ~((`USE_BRAM_BLOCKS_FOR_VRAM && RA[19:2] >= ({BRAM4_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM4_OFFS+3,16'hFFFF}>>2)) || (`USE_BRAM_BLOCKS_FOR_VRAM && RA[19:2] >= ({BRAM2_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM2_OFFS+1,16'hFFFF}>>2)) || (RA[19:2] >= ({BRAM1_OFFS+0,16'h0000}>>2) && RA[19:2] <= ({BRAM1_OFFS+0,16'hBFFF}>>2)) || (RA[19:2] >= (20'hFC000>>2)));
 	
 	ddram ddram
 	(
@@ -1167,52 +1244,53 @@ module emu
 		.nvram_dout(ddr_nvram_do),
 		.nvram_busy(ddr_nvram_busy),
 		
-		.sclk(SYS_CE_R),
-		.laddr(LA[19:2]),
-		.ldin (RAM_DO[31:16]),
-		.lras (!LRAS0_N),
-		.lwe  (ddr_luse ? ~LWE_N : '0),
-		.lrd  (ddr_luse ? ~LOE_N : 0),
-		.ldout(ddr_do[31:16]),
-		.raddr(RA[19:2]),
-		.rdin (RAM_DO[15:0]),
-		.rras (!RRAS0_N),
-		.rwe  (ddr_ruse ? ~RWE_N : '0),
-		.rrd  (ddr_ruse ? ~ROE_N : 0),
-		.rdout(ddr_do[15:0]),
+		.sclk(1'b0),
+		.laddr('0),
+		.ldin ('0),
+		.lras (1'b0),
+		.lwe  ('0),
+		.lrd  (1'b0),
+		.ldout(),
+		.raddr('0),
+		.rdin ('0),
+		.rras (1'b0),
+		.rwe  ('0),
+		.rrd  (1'b0),
+		.rdout(),
 		.busy(ddr_busy),
 		
-		.bladdr(ddr_bladdr),
-		.blwr  (ddr_blwr),
-		.blrd  (ddr_blrd),
-		.braddr(ddr_braddr),
-		.brwr  (ddr_brwr),
-		.brrd  (ddr_brrd),
-		.bfw   (ddr_bfw),
+		.bladdr('0),
+		.blwr  (1'b0),
+		.blrd  (1'b0),
+		.braddr('0),
+		.brwr  (1'b0),
+		.brrd  (1'b0),
+		.bfw   (1'b0),
 		.ba(),
-		.bin(ddr_bin),
-		.bout(ddr_bout),
-		.blte(ddr_blte),
-		.brte(ddr_brte),
-		.bbusy(ddr_bbusy)
+		.bin('0),
+		.bout(),
+		.blte(),
+		.brte(),
+		.bbusy()
 	);
 
-	reg pause;
+	reg pause_mem;
 	always @(posedge clk_sys) begin
 		bit cond;
 		
 		if (reset) begin
-			pause <= 0;
+			pause_mem <= 0;
 		end else if (CE_F) begin
-			cond = ddr_io_busy || ddr_busy || !VRAM_LRDY || !VRAM_RRDY || DBG_PAUSE;
-			if (cond && !pause) begin
-				pause <= 1;
+			cond = ddr_io_busy || ddr_busy || !VRAM_LRDY || !VRAM_RRDY || DBG_PAUSE || sdr_mem_wait;
+			if (cond && !pause_mem) begin
+				pause_mem <= 1;
 			end
-			if (!cond && pause) begin
-				pause <= 0;
+			if (!cond && pause_mem) begin
+				pause_mem <= 0;
 			end
 		end
 	end
+	wire pause = pause_mem | vsd_pause;
 	
 	/////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 	wire downloading = save_download;
@@ -1379,12 +1457,15 @@ module emu
 	
 	//Debug: share of each frame where the console waits for the DDR3, drawn over the picture
 	wire [23:0] meter_rgb, pmeter_rgb;
+	//(the VRAM wait registered: the meter counts frames, a clock later changes nothing, and the wait comes from clk_mem)
+	reg         meter_vram_wait;
+	always @(posedge clk_sys) meter_vram_wait <= ~VRAM_LRDY | ~VRAM_RRDY | vsd_pause | sdr_mem_wait;
 	P3DO_PAUSE_METER pause_meter
 	(
 		.CLK(clk_sys),
 		.PAUSE(pause),
 		.DDR_BUSY(ddr_busy),
-		.VRAM_WAIT(~VRAM_LRDY | ~VRAM_RRDY),
+		.VRAM_WAIT(meter_vram_wait),	//VRAM in SDRAM: serial-port blocks, frame-buffer reads, accesses to another row
 		.IO_BUSY(ddr_io_busy),
 		.ENABLE(status[22]),
 
@@ -1409,6 +1490,7 @@ module emu
 		.BRAM2_OFFS(BRAM2_OFFS),
 		.BRAM1_OFFS(BRAM1_OFFS),
 		.BRAM_BLOCKS(`USE_BRAM_BLOCKS_FOR_VRAM != 0),
+		.VRAM_SDRAM(1'b1),	//this core keeps the whole VRAM in SDRAM
 		.ENABLE(status[53]),
 
 		.VCLK(clk_vid),

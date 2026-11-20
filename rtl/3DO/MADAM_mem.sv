@@ -253,6 +253,74 @@ module madam_div (
 
 endmodule
 
+//The DMA stack read a clock ahead (timing: the read of the memory and the choice of the word were on the path from the stack to
+//the RAS of MADAM and the SDRAM): four banks of 32 words, one per low address bit pair, all read at the group the read address
+//has after the clock (RGRP, from MADAM_AG), and the word of its low bits after the clock (RLOW) goes into Q, or the word written
+//in that clock at that address. Q is the word a read of MADAM_DMA_STACK at the read address gives.
+module MADAM_DMA_STACK_PR (
+	input             CLK,
+	input             CE,
+	input             EN,
+
+	input     [ 6: 0] WADDR,
+	input     [21: 0] DIN,
+	input             WE,
+
+	input     [ 6: 2] RGRP,		//the read address after this clock: group (6:2)
+	input     [ 1: 0] RLOW,		//and low bits
+	output reg [21: 0] Q = '0
+);
+
+	wire         WR = WE && EN && CE;
+	wire [87: 0] BQ;				//the four words of the group RGRP, word k in BQ[22*k+21:22*k]
+
+	always @(posedge CLK) Q <= (WR && WADDR == {RGRP,RLOW}) ? DIN :
+	                           RLOW[1] ? (RLOW[0] ? BQ[87:66] : BQ[65:44]) : (RLOW[0] ? BQ[43:22] : BQ[21:0]);
+
+	genvar k;
+	generate
+		for (k = 0; k < 4; k = k + 1) begin : bank
+			localparam bit [1:0] K = k;
+			wire [21: 0] q;
+			assign BQ[22*k +: 22] = q;
+			altdpram #(
+				.indata_aclr("OFF"),
+				.indata_reg("INCLOCK"),
+				.intended_device_family("Cyclone V"),
+				.lpm_type("altdpram"),
+				.outdata_aclr("OFF"),
+				.outdata_reg("UNREGISTERED"),
+				.ram_block_type("MLAB"),
+				.rdaddress_aclr("OFF"),
+				.rdaddress_reg("UNREGISTERED"),
+				.rdcontrol_aclr("OFF"),
+				.rdcontrol_reg("UNREGISTERED"),
+				.read_during_write_mode_mixed_ports("CONSTRAINED_DONT_CARE"),
+				.width(22),
+				.widthad(5),
+				.width_byteena(1),
+				.wraddress_aclr("OFF"),
+				.wraddress_reg("INCLOCK"),
+				.wrcontrol_aclr("OFF"),
+				.wrcontrol_reg("INCLOCK")
+			) altdpram_component (
+				.data (DIN),
+				.inclock (CLK),
+				.rdaddress (RGRP),
+				.wraddress (WADDR[6:2]),
+				.wren (WR && WADDR[1:0] == K),
+				.q (q),
+				.aclr (1'b0),
+				.byteena (1'b1),
+				.inclocken (1'b1),
+				.rdaddressstall (1'b0),
+				.rden (1'b1),
+				.wraddressstall (1'b0));
+		end
+	endgenerate
+
+endmodule
+
 module MADAM_DMA_STACK (
 	input             CLK,
 	input             CE,

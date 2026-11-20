@@ -33,6 +33,9 @@ module P3DO
 	output             LSC,
 	input              LQSF,
 	output     [ 3: 0] LCODE,
+	output             CFB_RD,
+	output             SPORT_CPU,
+	input              VRAM_SP_BUSY,
 	output     [23: 2] RA,
 	output             RRAS0_N,
 	output             RRAS2_N,
@@ -245,7 +248,8 @@ module P3DO
 		
 		.CE_F(CE_F && ~PAUSE),
 		.CE_R(CE_R && ~PAUSE),
-		
+		.CE_RP(CE_R && PAUSE),
+
 //		.RESET_N(RESET_N),
 		
 		.A(CPU_A),
@@ -278,6 +282,9 @@ module P3DO
 		.LDSF(LDSF),
 		.LQSF(LQSF),
 		.LCODE(LCODE),
+		.CFB_RD(CFB_RD),
+		.SPORT_CPU(SPORT_CPU),
+		.VRAM_SP_BUSY(VRAM_SP_BUSY),
 		.RA(RA),
 		.RRAS0_N(RRAS0_N),
 		.RRAS2_N(RRAS2_N),

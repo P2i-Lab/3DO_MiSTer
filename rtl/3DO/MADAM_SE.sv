@@ -9,10 +9,11 @@ module MADAM_SE
 	input              CLK,
 	input              RST_N,
 	input              EN,
-	
+
 	input              CE_R,
 	input              CE_F,
-	
+	input              CE_RP,		//a CE_R while the console is stopped for the memory (VRAM in SDRAM)
+
 	input      [31: 0] CPU_DI,
 	input      [23: 2] MADR,
 	input      [31: 0] MDTI,
@@ -2114,7 +2115,10 @@ module MADAM_SE
 	bit  signed [32: 0] TSK_CROSS;
 	always @(posedge CLK) TSK_CROSS <= TSK_CROSS0;
 	wire        [32: 0] TSK_AREA = TSK_CROSS[32] ? -TSK_CROSS : TSK_CROSS;
-	wire        [51: 0] TSK_KA = {36'd0,TSK_K} * {19'd0,TSK_AREA};
+	//TSK_K is 96: the product is written as the sum of two shifted copies (the same value as {36'd0,TSK_K} * {19'd0,TSK_AREA}),
+	//as a multiplier it took two DSP blocks in a row, too slow for one clock with the rest of the sum; another TSK_K needs
+	//another sum here
+	wire        [51: 0] TSK_KA = ({19'd0,TSK_AREA} << 6) + ({19'd0,TSK_AREA} << 5);
 	wire        [51: 0] TSK_SUM = {20'd0,TSK_C,16'd0} + (TSK_KA >> 4);
 	wire [15: 0] TSK_D16 = 16'd2;	//fix_tsk16: D of the transparent-skip pace for 16-bit cels
 	wire        [51: 0] TSK_SUB = {20'd0,SCOB_PRE0.BPP == 3'd6 ? TSK_D16 : TSK_D,16'd0};
@@ -2185,6 +2189,15 @@ module MADAM_SE
 	wire         PACE_A_PAY = CRNA_ST == CRN_IDLE && XY_FIFO_A_EMPTY && |PACE_A[23:2];
 	wire [ 7: 0] PACE_TAK_B = (MATH_B_STAT.RC ? (MATH_B_RCV ? PACE_CLIP0 : PACE_CLIP) : (UNPACKER_B_NOSRC ? (UNPACKER_B_NEXT_T ? 8'd1 : 8'd0) : (NPF_ON && MATH_B_STAT.NP ? 8'd0 : PACE_PIX)) + (MATH_B_STAT.NP || (UNPACKER_B_NOSRC && UNPACKER_B_NEXT_T) ? 8'd0 : PACE_LINES));
 	wire         PACE_B_PAY = CRNB_ST == CRN_IDLE && XY_FIFO_A_EMPTY && |PACE_B[23:2];
+	//The pace never goes below zero: a transparent skip takes back the pixel pace it replaces (TSK_PACE - TAK_LAST_A), but that
+	//pace may already be paid by the cycles the console was stopped (CE_RP, VRAM in SDRAM); in 24 bits the sum would wrap to
+	//about 2^24 and the cel would wait 2^22 CE_R (168 ms: 6-bit transparent cels reduced with ACE, disc 3.6 grid P). Without
+	//that the value is the one of the 24-bit sum.
+	bit          DRAW_A_FF,DRAW_B_FF;	//(declared here, before the sums below; set with the frame-buffer address further down)
+	wire [24: 0] PACE_A_UP = {1'b0,PACE_A} + (UNPACKER_A_TAK_EN ? {17'd0,PACE_TAK_A} : 25'd0) + (OUT_A_GO_FF && IPN_A.T && !(TSK_EN && OUT_A_RG_FF) ? {17'd0,PACE_TRANS} : 25'd0) + (TSK_A_GO_FF ? {17'd0,TSK_PACE} : 25'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_A_FF ? {17'd0,PACE_CFB} : 25'd0) + (UNPACKER_A_PKT ? (UNPACKER_A_PKT_TR ? 25'd4 : 25'd2) : 25'd0);
+	wire [ 8: 0] PACE_A_DN = (TSK_A_GO_FF ? {1'b0,TAK_LAST_A} : 9'd0) + (PACE_A_PAY ? 9'd4 : 9'd0);
+	wire [24: 0] PACE_B_UP = {1'b0,PACE_B} + (UNPACKER_B_TAK_EN ? {17'd0,PACE_TAK_B} : 25'd0) + (OUT_B_GO_FF && IPN_B.T && !(TSK_EN && OUT_B_RG_FF) ? {17'd0,PACE_TRANS} : 25'd0) + (TSK_B_GO_FF ? {17'd0,TSK_PACE} : 25'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_B_FF ? {17'd0,PACE_CFB} : 25'd0) + (UNPACKER_B_PKT ? (UNPACKER_B_PKT_TR ? 25'd4 : 25'd2) : 25'd0);
+	wire [ 8: 0] PACE_B_DN = (TSK_B_GO_FF ? {1'b0,TAK_LAST_B} : 9'd0) + (PACE_B_PAY ? 9'd4 : 9'd0);
 	always @(posedge CLK or negedge RST_N) begin
 		if (!RST_N) begin
 			{PACE_A,PACE_B} <= '0;
@@ -2200,11 +2213,17 @@ module MADAM_SE
 				TSK_B_GO_FF <= CRNB_SKIP && TSK_B;
 			end
 			if (CE_R) begin
-				PACE_A <= PACE_A + (UNPACKER_A_TAK_EN ? {16'd0,PACE_TAK_A} : 24'd0) + (OUT_A_GO_FF && IPN_A.T && !(TSK_EN && OUT_A_RG_FF) ? {16'd0,PACE_TRANS} : 24'd0) + (TSK_A_GO_FF ? {16'd0,TSK_PACE} - {16'd0,TAK_LAST_A} : 24'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_A_FF ? {16'd0,PACE_CFB} : 24'd0) + (UNPACKER_A_PKT ? (UNPACKER_A_PKT_TR ? 24'd4 : 24'd2) : 24'd0) - (PACE_A_PAY ? 24'd4 : 24'd0);
-				PACE_B <= PACE_B + (UNPACKER_B_TAK_EN ? {16'd0,PACE_TAK_B} : 24'd0) + (OUT_B_GO_FF && IPN_B.T && !(TSK_EN && OUT_B_RG_FF) ? {16'd0,PACE_TRANS} : 24'd0) + (TSK_B_GO_FF ? {16'd0,TSK_PACE} - {16'd0,TAK_LAST_B} : 24'd0) + (BUS_STATE_FF == CFB_READ1 && DRAW_B_FF ? {16'd0,PACE_CFB} : 24'd0) + (UNPACKER_B_PKT ? (UNPACKER_B_PKT_TR ? 24'd4 : 24'd2) : 24'd0) - (PACE_B_PAY ? 24'd4 : 24'd0);
+				PACE_A <= PACE_A_UP < {16'd0,PACE_A_DN} ? 24'd0 : PACE_A_UP[23:0] - {15'd0,PACE_A_DN};
+				PACE_B <= PACE_B_UP < {16'd0,PACE_B_DN} ? 24'd0 : PACE_B_UP[23:0] - {15'd0,PACE_B_DN};
 				if (UNPACKER_A_TAK_EN) TAK_LAST_A <= PACE_TAK_A;
 				if (UNPACKER_B_TAK_EN) TAK_LAST_B <= PACE_TAK_B;
 				if (SPR_NEXT) {PACE_A,PACE_B} <= '0;
+			end else if (CE_RP) begin
+				//VRAM in SDRAM: a cycle the console is stopped for the memory is time the FZ-10 spends on the pace of
+				//the cel as well, so it pays the pace as a waiting cycle does: the cel takes the time of the model, or
+				//more when the stops are longer than its pace, never less
+				if (|PACE_A[23:2]) PACE_A <= PACE_A - 24'd4;
+				if (|PACE_B[23:2]) PACE_B <= PACE_B - 24'd4;
 			end
 		end
 	end
@@ -2394,8 +2413,7 @@ module MADAM_SE
 		end
 	end 
 	assign SYNC_FIFO_RDREQ = SYNC_FIFO_READ && !DST_LAST_A && !DST_SUSPEND;
-	
-	bit          DRAW_A_FF,DRAW_B_FF;
+
 	bit  [23: 1] DST_ADDR_A,DST_ADDR_B;
 	bit          DST_WRITE_A,DST_WRITE_B;
 	bit          DST_READ;

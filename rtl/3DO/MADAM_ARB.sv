@@ -16,6 +16,8 @@ module MADAM_ARB
 	output reg         CPU_GRANT,
 	input              CPU_READY,
 	input AddrGenCtl_t CPU_AG_CTL,
+	input              CPU_VRAM_ACC,	//the CPU's next access is to the VRAM or its serial port
+	input              VRAM_SP_BUSY,	//the VRAM in SDRAM still works on a copy or a flash write of the CPU
 	
 	//AG
 	input              PBI,
@@ -63,6 +65,9 @@ module MADAM_ARB
 	output BusState_t  BUS_STATE,
 	output reg         BUS_PB,
 	output AddrGenCtl_t DMA_CTL,
+	//CPU_GRANT and DMA_CTL2 as they will be after this clock (MADAM_AG reads the DMA stack a clock ahead, at the address of the next clock)
+	output             CPU_GRANT_NX,
+	output AddrGenCtl_t DMA_CTL2_NX,
 	input      [ 3: 0] DBG_EXT
 	
 `ifdef DEBUG
@@ -90,10 +95,14 @@ module MADAM_ARB
 		end
 	end 
 	
+	//VRAM in SDRAM: while the VRAM works on a copy or a flash write of the CPU, the CPU's next VRAM access waits here, off
+	//the bus, and not in a memory cycle held by RDY (which pauses the whole console): the video transfers go on time
+	wire CPU_HOLD = CPU_VRAM_ACC && VRAM_SP_BUSY;
 	wire HI_PRIO_REQ = VIDMID_REQ | CLUTWR_REQ | VIDOUT_REQ | REFRESH_REQ | PLAYER_REQ | EXTP_REQ | SPRPAUS_REQ;
 	BusState_t  BUS_ST;
+	bit         CPU_GRANT_INT;		//(declared out of the block below for CPU_GRANT_NX)
 	always @(posedge CLK or negedge RST_N) begin
-		bit         CPU_GRANT_INT,EXTP_GRANT_INT,SE_GRANT_INT,SPORT_GRANT_INT,PLAYER_GRANT_INT;
+		bit         EXTP_GRANT_INT,SE_GRANT_INT,SPORT_GRANT_INT,PLAYER_GRANT_INT;
 		bit         BUS_PB_INT;
 		BusState_t  PB_NEXT_ST;
 		bit         SE_RUN;
@@ -139,10 +148,10 @@ module MADAM_ARB
 					//While CLIO works on an access it has taken (XBUS), the CPU waits anyway: the video
 					//transfers, which must keep up with the display, go first.
 					if (CLIO_REQ && !(CLIO_BUSY && (VIDMID_REQ || CLUTWR_REQ || VIDOUT_REQ))) begin
-						CPU_GRANT_INT <= 1;
+						CPU_GRANT_INT <= !CPU_HOLD;
 					end
 					else if (!CPU_READY && !SE_RUN && !HI_PRIO_REQ) begin
-						CPU_GRANT_INT <= 1;
+						CPU_GRANT_INT <= !CPU_HOLD;
 					end
 					else if (VIDMID_REQ) begin	//priority 2
 						VIDOUT_ACK <= 1;
@@ -204,13 +213,13 @@ module MADAM_ARB
 						if (SE_RUN) begin
 							if (SPREND_REQ) begin	
 								SE_RUN <= 0;
-								CPU_GRANT_INT <= 1;
+								CPU_GRANT_INT <= !CPU_HOLD;
 							end else if (SPRPAUS_REQ) begin
 								SE_GRANT_INT <= 0;
-								CPU_GRANT_INT <= 1;
+								CPU_GRANT_INT <= !CPU_HOLD;
 							end
 						end else begin
-							CPU_GRANT_INT <= 1;
+							CPU_GRANT_INT <= !CPU_HOLD;
 						end
 					end
 				end
@@ -267,7 +276,7 @@ module MADAM_ARB
 				EXTP_LOOP3: begin
 					begin
 						EXTP_GRANT_INT <= 0;
-						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 						BUS_ST <= BUS_IDLE;
 					end
 				end
@@ -287,7 +296,7 @@ module MADAM_ARB
 				PLAY_WRITE0: BUS_ST <= PLAY_WRITE1;
 				PLAY_WRITE1: begin
 					PLAYER_GRANT_INT <= 0;
-					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 					BUS_ST <= BUS_IDLE;
 				end
 				
@@ -299,7 +308,7 @@ module MADAM_ARB
 				REF_WRITE2: BUS_ST <= REF_WRITE3;
 				REF_WRITE3: begin
 					PLAYER_GRANT_INT <= 0;
-					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 					BUS_ST <= BUS_IDLE;
 				end
 				
@@ -729,7 +738,7 @@ module MADAM_ARB
 				CLUT_MIDTRANS0: BUS_ST <= CLUT_MIDTRANS1;
 				CLUT_MIDTRANS1: begin
 					SPORT_GRANT_INT <= 0;
-					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+					if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 					BUS_ST <= BUS_IDLE;
 				end
 				
@@ -748,7 +757,7 @@ module MADAM_ARB
 					end
 					else begin
 						SPORT_GRANT_INT <= 0;
-						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 						BUS_ST <= BUS_IDLE;
 					end
 				end
@@ -764,7 +773,7 @@ module MADAM_ARB
 					end
 					else begin
 						SPORT_GRANT_INT <= 0;
-						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 						BUS_ST <= BUS_IDLE;
 					end
 				end
@@ -777,7 +786,7 @@ module MADAM_ARB
 					end
 					else begin
 						SPORT_GRANT_INT <= 0;
-						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= 1;
+						if (!SE_RUN && !HI_PRIO_REQ) CPU_GRANT_INT <= !CPU_HOLD;
 						BUS_ST <= BUS_IDLE;
 					end
 				end
@@ -804,21 +813,25 @@ module MADAM_ARB
 	end 
 	assign BUS_STATE = BUS_ST;
 
-	AddrGenCtl_t DMA_CTL2;
+	//(DMA_CTL2 written as its input and its register, for DMA_CTL2_NX; the same register as before)
+	AddrGenCtl_t DMA_CTL2,DMA_CTL2_D;
 	always @(posedge CLK or negedge RST_N) begin
-		if (!RST_N) begin
-			DMA_CTL2 <= '0;
-		end
-		else if (EN && CE_R) begin
-			DMA_CTL2 <= '0;
-			
+		if (!RST_N) DMA_CTL2 <= '0;
+		else if (EN && CE_R) DMA_CTL2 <= DMA_CTL2_D;
+	end
+	assign DMA_CTL2_NX  = !RST_N ? '0   : (EN && CE_R) ? DMA_CTL2_D    : DMA_CTL2;
+	assign CPU_GRANT_NX = !RST_N ? 1'b1 : (EN && CE_R) ? CPU_GRANT_INT : CPU_GRANT;
+	always_comb begin
+		begin
+			DMA_CTL2_D = '0;
+
 			if (BUS_ST == EXTP_PREINIT1 || BUS_ST == EXTP_INIT0 || BUS_ST == EXTP_INIT1 ||			
 				 BUS_ST == EXTP_READ0 || BUS_ST == EXTP_READ1 ||		
 				 BUS_ST == EXTP_PREINIT3 || BUS_ST == EXTP_INIT2 || BUS_ST == EXTP_INIT3 ||
 				 BUS_ST == EXTP_WRITE0 || BUS_ST == EXTP_WRITE1 ||			
 				 BUS_ST == EXTP_LOOP0 || BUS_ST == EXTP_LOOP1 ||
 				 BUS_ST == EXTP_LOOP2 || BUS_ST == EXTP_LOOP3) begin
-				DMA_CTL2 <= EXTP_AG_CTL;
+				DMA_CTL2_D = EXTP_AG_CTL;
 			end
 			else if (BUS_ST == SCOB_PREINIT1 || BUS_ST == SCOB_INIT0 || BUS_ST == SCOB_INIT1 ||
 				BUS_ST == SCOB_FLAG0 || BUS_ST == SCOB_FLAG1 ||
@@ -857,7 +870,7 @@ module MADAM_ARB
 				BUS_ST == CFB_INIT0 || BUS_ST == CFB_INIT1 ||
 				BUS_ST == CFB_READ0 || BUS_ST == CFB_READ1 ||
 				BUS_ST == CFB_WRITE0 || BUS_ST == CFB_WRITE1) begin
-				DMA_CTL2 <= SE_AG_CTL;
+				DMA_CTL2_D = SE_AG_CTL;
 			end
 			else if (BUS_ST == CLUT_PREINIT1 || BUS_ST == CLUT_INIT0 || BUS_ST == CLUT_INIT1 || 
 				BUS_ST == CLUT_CTRL0 || BUS_ST == CLUT_CTRL1 ||
@@ -876,7 +889,7 @@ module MADAM_ARB
 				BUS_ST == VID_MIDPREINIT1 ||BUS_ST == VID_MIDINIT0 || BUS_ST == VID_MIDINIT1 ||
 				BUS_ST == VID_MIDPREV0 || BUS_ST == VID_MIDPREV1 ||
 				BUS_ST == VID_MIDCURR0 || BUS_ST == VID_MIDCURR1) begin
-				DMA_CTL2 <= SPORT_AG_CTL;
+				DMA_CTL2_D = SPORT_AG_CTL;
 			end
 			else if (BUS_ST == PLAY_PREINIT1 || BUS_ST == PLAY_INIT0 || BUS_ST == PLAY_INIT1 ||
 				BUS_ST == PLAY_READ0 || BUS_ST == PLAY_READ1 ||
@@ -884,7 +897,7 @@ module MADAM_ARB
 				BUS_ST == PLAY_WRITE0 || BUS_ST == PLAY_WRITE1 ||
 				BUS_ST == REF_PREINIT1 || BUS_ST == REF_INIT0 || BUS_ST == REF_INIT1 ||
 				BUS_ST == REF_WRITE0 || BUS_ST == REF_WRITE1 || BUS_ST == REF_WRITE2 || BUS_ST == REF_WRITE3) begin
-				DMA_CTL2 <= PLAYER_AG_CTL;
+				DMA_CTL2_D = PLAYER_AG_CTL;
 			end
 		end
 	end

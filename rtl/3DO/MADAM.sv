@@ -6,7 +6,8 @@ module MADAM
 	
 	input              CE_R,
 	input              CE_F,
-	
+	input              CE_RP,		//a CE_R while the console is stopped for the memory (VRAM in SDRAM)
+
 //	input              RESET_N,
 	
 	input      [31: 0] A,
@@ -44,6 +45,9 @@ module MADAM
 	output             LDSF,
 	input              LQSF,
 	output     [ 3: 0] LCODE,
+	output             CFB_RD,
+	output             SPORT_CPU,		//the VRAM cycle is a serial-port access of the CPU (copy, flash write), not of the video
+	input              VRAM_SP_BUSY,	//the VRAM is still busy with a copy or a flash write of the CPU (VRAM in SDRAM)
 	output     [23: 2] RA,
 	output             RRAS0_N,
 	output             RRAS2_N,
@@ -120,6 +124,8 @@ module MADAM
 	BusState_t   BUS_STATE;
 	bit          BUS_PB;
 	AddrGenCtl_t DMA_CTL;
+	AddrGenCtl_t DMA_CTL2_NX;		//(the arbiter's DMA control and CPU grant of the next clock, for the DMA stack read a clock ahead)
+	bit          CPU_GRANT_NX;
 	
 	//CPU
 	bit          CPU_GRANT;
@@ -416,21 +422,30 @@ module MADAM
 			REG_DO <= '0;
 	end
 	
+	//The bounds of the memory banks, from MSYS: taken into registers from the value MSYS has after the clock (timing: MSYS is
+	//written seldom, but its decode into the bounds was at the start of the path to the RAS and the SDRAM); the same bounds as
+	//computed from MSYS at once
+	wire [31: 0] MSYS_NX = !RST_N ? 32'h00000029 : (CE_R && REG_CTRL_SEL && nRW && A[7:2] == 6'd1) ? CPU_DI : MSYS;
 	bit  [23: 0] DRAM0_END,DRAM1_START,DRAM1_END,VRAM_START,VRAM_END;
-	always_comb begin
-		case (MSYS[4:3])
-			2'b00: begin DRAM0_END = 24'h000000; DRAM1_START = 24'h000000; end
-			2'b01: begin DRAM0_END = 24'h0FFFFF; DRAM1_START = 24'h100000; end
-			2'b10: begin DRAM0_END = 24'h3FFFFF; DRAM1_START = 24'h400000; end
-			2'b11: begin DRAM0_END = 24'hDFFFFF; DRAM1_START = 24'hE00000; end//??
+	always @(posedge CLK) begin
+		bit  [23: 0] d0e,d1s,d1e,vs;
+		case (MSYS_NX[4:3])
+			2'b00: begin d0e = 24'h000000; d1s = 24'h000000; end
+			2'b01: begin d0e = 24'h0FFFFF; d1s = 24'h100000; end
+			2'b10: begin d0e = 24'h3FFFFF; d1s = 24'h400000; end
+			2'b11: begin d0e = 24'hDFFFFF; d1s = 24'hE00000; end//??
 		endcase
-		case (MSYS[6:5])
-			2'b00: begin DRAM1_END = DRAM1_START + 24'h000000; VRAM_START = DRAM1_START + 24'h000000; end
-			2'b01: begin DRAM1_END = DRAM1_START + 24'h0FFFFF; VRAM_START = DRAM1_START + 24'h100000; end
+		case (MSYS_NX[6:5])
+			2'b00: begin d1e = d1s + 24'h000000; vs = d1s + 24'h000000; end
+			2'b01: begin d1e = d1s + 24'h0FFFFF; vs = d1s + 24'h100000; end
 			2'b10,
-			2'b11: begin DRAM1_END = DRAM1_START + 24'h3FFFFF; VRAM_START = DRAM1_START + 24'h400000; end
+			2'b11: begin d1e = d1s + 24'h3FFFFF; vs = d1s + 24'h400000; end
 		endcase
-		VRAM_END = VRAM_START + 24'h0FFFFF;
+		DRAM0_END <= d0e;
+		DRAM1_START <= d1s;
+		DRAM1_END <= d1e;
+		VRAM_START <= vs;
+		VRAM_END <= vs + 24'h0FFFFF;
 	end
 	wire CPU_DRAM0_SEL = (A[31:24] == 8'h00 && A[23:0] >= 32'h00000000 && A[23:0] <= DRAM0_END && |MSYS[4:3] && !BOOT_ROM);
 	wire CPU_DRAM1_SEL = (A[31:24] == 8'h00 && A[23:0] >= DRAM1_START  && A[23:0] <= DRAM1_END && |MSYS[6:5] && !BOOT_ROM);
@@ -438,7 +453,10 @@ module MADAM
 	wire CPU_CLIO_SEL = (A[31:20] == 12'h034);
 	wire CPU_SLOW_SEL = (A[31:20] == 12'h030 || A[31:20] == 12'h031 || (A[31:20] == 12'h000 && BOOT_ROM));
 	wire CPU_SPORT_SEL = (A[31:20] == 12'h032 && CPU_GRANT);
-	
+	assign SPORT_CPU = CPU_SPORT_SEL;
+	//the CPU's address is in the VRAM or its serial port (the arbiter keeps it off the bus while the VRAM is busy)
+	wire CPU_VRAM_ACC = CPU_VRAM_SEL || (A[31:20] == 12'h032);
+
 	MADAM_ARB ARB
 	(
 		.CLK(CLK),
@@ -454,6 +472,8 @@ module MADAM
 		.CPU_GRANT(CPU_GRANT),
 		.CPU_READY(CPU_READY),
 		.CPU_AG_CTL(CPU_AG_CTL),
+		.CPU_VRAM_ACC(CPU_VRAM_ACC),
+		.VRAM_SP_BUSY(VRAM_SP_BUSY),
 		
 		.PBI(AG_PBI),
 		
@@ -496,7 +516,9 @@ module MADAM
 		.BUS_STATE(BUS_STATE),
 		.BUS_PB(BUS_PB),
 		.DMA_CTL(DMA_CTL),
-		
+		.CPU_GRANT_NX(CPU_GRANT_NX),
+		.DMA_CTL2_NX(DMA_CTL2_NX),
+
 		.DBG_EXT(DBG_EXT)
 	);
 	
@@ -621,6 +643,7 @@ module MADAM
 		.CPU_GRANT(CPU_GRANT),
 		
 		.MEM_SIZE(MSYS[6:0]),
+		.MEM_SIZE_NX(MSYS_NX[6:0]),
 		.DRAM_EN(~BOOT_ROM),
 		
 		.EXTP_GRANT(EXTP_GRANT),
@@ -648,6 +671,8 @@ module MADAM
 		.MWR(MWR),
 		.BUS_STATE(BUS_STATE),
 		.DMA_CTL(DMA_CTL),
+		.CPU_GRANT_NX(CPU_GRANT_NX),
+		.DMA_CTL2_NX(DMA_CTL2_NX),
 		.PBI(AG_PBI),
 		.REG_OVF(AG_REG_OVF),
 		.REG_ZERO(AG_REG_ZERO),
@@ -662,6 +687,7 @@ module MADAM
 		.LDSF(LDSF),
 		.LQSF(LQSF),
 		.LCODE(LCODE),
+		.CFB_RD(CFB_RD),
 		.RA(RA),
 		.RRAS0_N(RRAS0_N),
 		.RRAS2_N(RRAS2_N),
@@ -684,10 +710,11 @@ module MADAM
 		.CLK(CLK),
 		.RST_N(RST_N),
 		.EN(EN),
-		
+
 		.CE_R(CE_R),
 		.CE_F(CE_F),
-		
+		.CE_RP(CE_RP),
+
 		.CPU_DI(CPU_DI),
 		.MADR(MADR),
 		.MDTI(DI),

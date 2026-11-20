@@ -12,7 +12,7 @@
 //              Colour of both addresses: green if the whole 320x240 16-bit screen from there is
 //              in FPGA memory (the BRAM blocks of the VRAM, never a pause), yellow if part of it
 //              is in DDR3, red if all of it is (pauses while the video reads it), grey outside
-//              the VRAM (DRAM).
+//              the VRAM (DRAM). With the VRAM in SDRAM (VRAM_SDRAM), every VRAM address is cyan.
 //    bar       share of the field the cel engine runs (SPRON, memory pauses included):
 //              128 pixels = 100 %, grey marks every 25 %, white mark: highest of the last 64 fields
 //    F nn      new pictures per second: fields whose displayed frame buffer differs from the
@@ -30,6 +30,7 @@ module P3DO_DEBUG_INFO
 	input       [3:0] BRAM2_OFFS,
 	input       [3:0] BRAM1_OFFS,
 	input             BRAM_BLOCKS,  // USE_BRAM_BLOCKS_FOR_VRAM
+	input             VRAM_SDRAM,   // the whole VRAM is in SDRAM (test core vram-sdram): no BRAM/DDR3 split
 	input             ENABLE,       // OSD option (CLK domain)
 
 	input             VCLK,         // video clock
@@ -294,7 +295,8 @@ module P3DO_DEBUG_INFO
 				else if (cpos >= 3'd2) begin
 					ch = addr[4 * (7 - cpos) +: 4];
 					ch_on = 1'b1;
-					ch_color = cov_color(row == 2'd0 ? v_cov_d : v_cov_c);
+					ch_color = VRAM_SDRAM && (row == 2'd0 ? v_cov_d : v_cov_c) != 2'd0 ? 24'h40C0FF	// VRAM in SDRAM
+					         : cov_color(row == 2'd0 ? v_cov_d : v_cov_c);
 				end
 			end
 			2'd3: begin
