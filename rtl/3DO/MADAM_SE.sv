@@ -195,6 +195,22 @@ module MADAM_SE
 	wire SPRPAUS_WRITE = SEL && MADR[7:2] == (8'h0C>>2) && MWR;
 	
 	bit          CRNA_READY,CRNB_READY;
+	bit          EX7_ROW_DRAWN;	//experiment ex7: a draw burst happened in this row
+	bit  [ 3: 0] EX7_HOLD;	//experiment ex7: CE_R left before a draw after a mid-row source burst
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			EX7_ROW_DRAWN <= 0;
+			EX7_HOLD <= '0;
+		end
+		else if (EN && CE_R) begin
+			if (BUS_STATE_FF == CFB_INIT0) EX7_ROW_DRAWN <= 1;
+			if (BUS_STATE_FF == SPR_PREINIT1) EX7_ROW_DRAWN <= 0;
+			if ((BUS_STATE_FF == SPR_PREINIT3 || BUS_STATE_FF == SPR_INIT2 || BUS_STATE_FF == SPR_INIT3 || BUS_STATE_FF == SPR_DATA0 || BUS_STATE_FF == SPR_DATA1) && EX7_ROW_DRAWN && !SCOB_FLAG.ACE && !SCOB_FLAG.PACKED && SCOB_PRE0.BPP == 3'd6)
+				EX7_HOLD <= 4'd2;
+			else if (EX7_HOLD != 4'd0)
+				EX7_HOLD <= EX7_HOLD - 4'd1;
+		end
+	end
 	bit          CRNA_FINISH,CRNB_FINISH;
 	bit          ROW_A_START,ROW_B_START;
 	bit          ROW_A_FULL_LOADED,ROW_B_FULL_LOADED;
@@ -403,20 +419,30 @@ module MADAM_SE
 				end
 				
 				MS_SPRDATA_NEXT: if (CE_R) begin
-					if (NEXT_LINE_A_PEND && !SPRDATA_A_RUN /*&& (NEXT_LINE_B_PEND || !LRFORM)*/ && LINE_CNT != LINE_LAST) begin
+					//experiment ex4: a row that ends with its source FIFO low still gets its burst before the row change
+					if (NEXT_LINE_A_PEND && SPR_FIFO_A_HALF && (SPR_FIFO_B_HALF || !LRFORM) && !ROW_A_FULL_LOADED && !SPRDATA_A_RUN && LINE_CNT != LINE_LAST) begin
+						MAIN_ST <= MS_SPRDATA_A_REQ;
+					end
+					else if (NEXT_LINE_B_PEND && SPR_FIFO_B_HALF && !ROW_B_FULL_LOADED && !SPRDATA_B_RUN && !SPRDATA_ENG_B_DISABLE && LINE_CNT != LINE_LAST) begin
+						MAIN_ST <= MS_SPRDATA_B_REQ;
+					end
+					else if (NEXT_LINE_A_PEND && !SPRDATA_A_RUN /*&& (NEXT_LINE_B_PEND || !LRFORM)*/ && LINE_CNT != LINE_LAST) begin
 						MAIN_ST <= MS_LINE_A_WAIT;
 					end
 					else if (NEXT_LINE_B_PEND && !SPRDATA_B_RUN && !SPRDATA_ENG_B_DISABLE && LINE_CNT != LINE_LAST) begin
 						MAIN_ST <= MS_LINE_B_WAIT;
 					end
-					else if ((CRNA_READY || CRNB_READY) && !SPRDRAW_RUN) begin
-						MAIN_ST <= MS_SPR_DRAW_START;
+					else if (EX7_ROW_DRAWN && !SCOB_FLAG.ACE && !SCOB_FLAG.PACKED && SCOB_PRE0.BPP == 3'd6 && (CRNA_READY || CRNB_READY) && !SPRDRAW_RUN) begin	//experiment ex10: in a 16-bit row, the draw before a new burst, after the restart wait
+						if (EX7_HOLD == 4'd0) MAIN_ST <= MS_SPR_DRAW_START;
 					end
 					else if (SPR_FIFO_A_HALF && (SPR_FIFO_B_HALF || !LRFORM) && !ROW_A_FULL_LOADED && !SPRDATA_A_RUN) begin
 						MAIN_ST <= MS_SPRDATA_A_REQ;
 					end
 					else if ((SPR_FIFO_B_HALF || SPRDATA_B_FIRST) && !ROW_B_FULL_LOADED && !SPRDATA_B_RUN && !SPRDATA_ENG_B_DISABLE) begin
 						MAIN_ST <= MS_SPRDATA_B_REQ;
+					end
+					else if ((CRNA_READY || CRNB_READY) && !SPRDRAW_RUN && EX7_HOLD == 4'd0) begin	//experiment ex5: after the refills; ex7: restart wait
+						MAIN_ST <= MS_SPR_DRAW_START;
 					end
 					else if (NEXT_LINE_A_PEND && (NEXT_LINE_B_PEND || !LINE_LAST || SPRDATA_ENG_B_DISABLE) && LINE_CNT == LINE_LAST) begin
 						MAIN_ST <= MS_END;
@@ -929,6 +955,7 @@ module MADAM_SE
 		.RDREQ(SPR_FIFO_A_RDREQ & CE_F),
 		.DOUT(SPR_FIFO_A_OUT),
 		.LESSHALF(SPR_FIFO_A_HALF),
+		.THR(SCOB_PRE0.BPP == 3'd6 ? 5'd2 : 5'd3),
 		.EMPTY(SPR_FIFO_A_EMPTY)
 	);
 	
@@ -951,6 +978,7 @@ module MADAM_SE
 		.RDREQ(SPR_FIFO_B_RDREQ & CE_F),
 		.DOUT(SPR_FIFO_B_OUT),
 		.LESSHALF(SPR_FIFO_B_HALF),
+		.THR(SCOB_PRE0.BPP == 3'd6 ? 5'd2 : 5'd3),
 		.EMPTY(SPR_FIFO_B_EMPTY)
 	);
 	
@@ -2082,6 +2110,7 @@ module MADAM_SE
 	wire [31: 0] GEO_HABS = GEO_DY_H[15] ? -{GEO_DY_H,GEO_DY_L} : {GEO_DY_H,GEO_DY_L};
 	wire [32: 0] GEO_EXT = {1'b0,GEO_VABS} + {5'b00000,GEO_HABS[31:4]};	//height of one source pixel on the screen, 16.16
 	bit  [ 4: 0] GEO_LINES;
+	bit          GEO_HALF;	//ex15: one source row is at most half a line high
 	bit          GEO_AXIS,GEO_Y12;
 	bit          GEO_T90;	//fix_rot90: turned by 90 or 270 degrees (HDX = VDY = 0)
 	//ACE, vertical scale between 1 and 2: 12 + K * (scale - 1) per source pixel of one engine (fix_y12p)
@@ -2128,6 +2157,7 @@ module MADAM_SE
 	bit  [ 7: 0] GEO_ACEX;
 	always @(posedge CLK) if (EN && CE_R) begin
 		GEO_LINES <= |GEO_EXT[32:20] ? 5'd31 : GEO_EXT[19:16] + (|GEO_EXT[15:0] ? 5'd1 : 5'd0);
+		GEO_HALF <= ~|GEO_EXT[32:16] && GEO_EXT[15:0] <= 16'h8000;
 		GEO_AXIS <= ~|{GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L};
 		GEO_T90 <= ~|{GEO_DX_H,GEO_DX_L,GEO_LDY_H,GEO_LDY_L} && |{GEO_LDX_H,GEO_LDX_L} && |{GEO_DY_H,GEO_DY_L};
 		ACE_ON <= SCOB_FLAG.ACE;
@@ -2149,7 +2179,7 @@ module MADAM_SE
 	wire [ 7: 0] PACE_LINES = GEO_LINES >= 5'd20 ? 8'd144 : GEO_LINES >= 5'd3 ? 8'd8 * (GEO_LINES - 5'd2) : 8'd0;	//every line past the second
 	wire [ 7: 0] PACE_ACE = GEO_Y12 ? 8'd12 + Y12_ADD : ((SCOB_PRE0.BPP == 3'd6 ? 8'd4 : 8'd4) - (SCOB_FLAG.LCE ? 8'd1 : 8'd0)) + GEO_ACEX + (GEO_T90 ? 8'd14 : 8'd0);	//ACE + LCE: FZ-10 4 to 9 % faster than ACE alone
 	wire [ 7: 0] PACE_PIX = SCOB_FLAG.ACE ? PACE_ACE :
-	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_LINES >= 5'd2 ? 8'd4 : 8'd3) :
+	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_LINES >= 5'd2 ? 8'd4 : GEO_HALF ? 8'd2 : 8'd1) :	/*experiment ex6: 3 -> 1; ex15: 2 on half-line rows*/
 	                        SCOB_PRE0.BPP >= 3'd3 ? 8'd1 : 8'd0;
 	//no penalty for two pixels written in the same cycle in different words: FZ-10 disc 3.4 page J, ACE at y 0-3 costs the same
 	//a transparent pixel, on top of the drawn pixel above
@@ -2418,6 +2448,7 @@ module MADAM_SE
 	bit          DST_WRITE_A,DST_WRITE_B;
 	bit          DST_READ;
 	bit          DST_LAST_A,DST_LAST_B,DST_SUSPEND;
+	bit  [ 3: 0] DST_BURST_CNT;	//experiment ex5: pixels written in this draw burst
 	always @(posedge CLK or negedge RST_N) begin	
 		bit  [ 3: 0] G1,G2;
 		bit  [23: 2] BASE;
@@ -2474,7 +2505,8 @@ module MADAM_SE
 			if (DRAW_B_FF  && (BUS_STATE == CFB_INIT0 || BUS_STATE_FF == CFB_INIT1 || BUS_STATE_FF == CFB_WRITE1 || BUS_STATE_FF == CFB_READ1)) begin DST_ADDR_B <= DST_ADDR_B_NEW; DST_PB_B <= &DST_ADDR_B_NEW[10:2]; end
 			if (SPR_NEXT) {DST_PB_A,DST_PB_B} <= '0;	//a page end left by the previous cel (by an engine this cel does not use) would stop every burst after one pixel
 			DST_READ <= DOLO_CYCLE;
-			if (BUS_STATE_FF == CFB_WRITE0 && (XY_FIFO_A_EMPTY || DST_PB_A || DST_PB_B) && !DST_LAST_A) DST_LAST_A <= 1;
+			if (BUS_STATE_FF == CFB_WRITE0 && (XY_FIFO_A_EMPTY || DST_PB_A || DST_PB_B || (DST_BURST_CNT == 4'd15 && !SCOB_FLAG.PACKED)) && !DST_LAST_A) DST_LAST_A <= 1;	//experiment ex5: 16 pixels at most
+			if (BUS_STATE_FF == CFB_INIT0) DST_BURST_CNT <= 4'd0; else if (BUS_STATE_FF == CFB_WRITE0 && DST_BURST_CNT != 4'd15) DST_BURST_CNT <= DST_BURST_CNT + 4'd1;
 			if (((DRAW_A_FF && DST_ADDR_A_NEW[23:11] != DST_PAGE_A) || (DRAW_B_FF && DST_ADDR_B_NEW[23:11] != DST_PAGE_B)) && FB_IN_DRAM && !DST_LAST_A) DST_LAST_A <= 1;
 			if (DST_LAST_A && !DST_LAST_B) DST_LAST_B <= 1;
 			if (CFB_SUSPEND && BUS_STATE_FF == CFB_WRITE0 && !DST_SUSPEND) begin DST_SUSPEND <= 1; end

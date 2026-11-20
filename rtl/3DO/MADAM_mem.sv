@@ -414,6 +414,7 @@ module MADAM_SPRYTE_DATA_FIFO (
 	
 	output            FULL,
 	output            LESSHALF,
+	input      [ 4: 0] THR,	//experiment thr2_16: the refill threshold
 	output            EMPTY
 );
 
@@ -443,7 +444,7 @@ module MADAM_SPRYTE_DATA_FIFO (
 		end
 	end
 	assign FULL = AMOUNT[4];
-	assign LESSHALF = (AMOUNT <= 5'd3);	//FZ-10 (disc 3.3, CELS LARGEURS): the time per row steps at source words 5, 9, 13, not 2, 6, 10
+	assign LESSHALF = (AMOUNT <= THR);	//experiment thr2_16	//FZ-10 (disc 3.3, CELS LARGEURS): the time per row steps at source words 5, 9, 13, not 2, 6, 10
 	assign EMPTY = ~|AMOUNT;
 	
 `ifdef SIM
