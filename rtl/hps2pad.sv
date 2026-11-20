@@ -15,7 +15,7 @@ module HPS2PAD (
 	input              STICK_EN,
 	input              MOUSE_EN,
 	input              ARCADE_SERVICE,
-	input      [ 1: 0] GUN_NUM,         // light guns at the head of the chain: 0, 1 or 2
+	input      [ 1: 0] GUN_NUM,         // light guns after the pads in the chain: 0, 1 or 2
 	input      [39: 0] GUN0_DATA,
 	input      [39: 0] GUN1_DATA,
 	
@@ -196,10 +196,24 @@ module HPS2PAD (
 			endcase
 	end
 
-	//the light guns first: on the real console the guns are plugged in before the pad (console - gun 1 - gun 2 - pad)
-	wire [255: 0] IN_DATA = GUN_NUM == 2'd0 ? PAD_DATA :
-	                        GUN_NUM == 2'd1 ? {GUN0_DATA, PAD_DATA[255:40]} :
-	                                          {GUN0_DATA, GUN1_DATA, PAD_DATA[255:80]};
+	//The light guns come after the pads: the Gamegun is plugged into the chain port of a pad (console - pad - gun 1 - gun 2).
+	//Demolition Man does not take a gun plugged into the console's port (Gamegun documentation). On a real FZ-10 the chain
+	//data are the same as here: pad 80 00, then the gun's 5 bytes. With the guns on there is no flightstick, mouse or arcade
+	//control (3DO.sv), so the pads are PAD_SEL x 16 bits; with no pad the guns come first.
+	wire [ 79: 0] GUN_DATA = GUN_NUM == 2'd2 ? {GUN0_DATA, GUN1_DATA} : {GUN0_DATA, {40{1'b1}}};
+	bit  [255: 0] IN_DATA;
+	always_comb begin
+		if (GUN_NUM == 2'd0)
+			IN_DATA = PAD_DATA;
+		else
+			case (PAD_SEL)
+				3'd1:    IN_DATA = {joy0_data,                               GUN_DATA, {256-16-80{1'b1}}};
+				3'd2:    IN_DATA = {joy0_data,joy1_data,                     GUN_DATA, {256-32-80{1'b1}}};
+				3'd3:    IN_DATA = {joy0_data,joy1_data,joy2_data,           GUN_DATA, {256-48-80{1'b1}}};
+				3'd4:    IN_DATA = {joy0_data,joy1_data,joy2_data,joy3_data, GUN_DATA, {256-64-80{1'b1}}};
+				default: IN_DATA = {                                         GUN_DATA, {256-80   {1'b1}}};
+			endcase
+	end
 
 	bit          LATCH;
 	always @(posedge CLK) begin

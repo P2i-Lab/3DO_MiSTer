@@ -837,7 +837,7 @@ module emu
 	wire [1:0] arcade_sel = status[38:37];
 	wire arcade_on = |arcade_sel;
 
-	//Light guns: first in the chain, before the pads; the flightstick and the mouse are off with them
+	//Light guns: in the chain after the pads (a Gamegun is plugged into a pad); the flightstick and the mouse are off with them
 	wire [1:0] gun_num = arcade_on ? 2'd0 : status[41] ? 2'd2 : {1'b0,status[40]};
 	wire gun_off = gun_num == 2'd0;
 	wire gun_one = gun_num != 2'd2;
