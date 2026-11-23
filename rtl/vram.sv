@@ -43,6 +43,10 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 	output reg [15: 0] SQ,
 	output         QSF,
 	output reg     SRDY,		//the serial register holds the data of the next shift
+	input          DISP_DMA,	//fix_disp: MADAM asks for or runs a display DMA (display list, video transfers)
+	input          CON_WAIT,	//fix_disp: the console waits for the memory
+	input          DISP_BUS,	//fix_disp2: MADAM's bus is in a display DMA state (MADAM alone uses it, and reads)
+	input          REF_BUS,	//fix_ref: MADAM's bus is in a memory refresh cycle
 
 	//block port of the SDRAM controller: pairs of 16-bit words, even column first
 	output reg     EREQ,
@@ -133,6 +137,17 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 	bit  [ 6: 0] REQ_Q;
 	bit          REQ_RB;
 	bit          REQ_NC;
+	bit          DH = 0;		//fix_disp: no block that stops the console, apart from the video's (see C_IDLE)
+	wire         DH_ON = 1'b1;
+	wire         DR_ON = 1'b1;
+	//fix_disp2: a read of MADAM's display DMA that does not depend on the masked write transfer in progress (not its rows, not the
+	//cache slot it writes) does not wait for it
+	wire         DR_OK = DR_ON && DISP_BUS && MWT_EXEC && !FW_EXEC && OE_N && WE_N && !DSF1 &&
+	                     A[17:9] != MEM_ROW && A[17:9] != RB_ROW && CSLOT(A[17:9]) != CSLOT(MEM_ROW);
+	wire         RF_ON = 1'b1;
+	//fix_ref: a memory refresh cycle of MADAM (no CAS, no transfer: nothing happens here for it) does not wait for a masked write
+	//transfer or a flash write
+	wire         RF_OK = RF_ON && REF_BUS && OE_N && WE_N && !DSF1;
 
 	bit  [ 8: 1] SR_WP;
 	bit  [31: 0] SR_WD;
@@ -341,6 +356,7 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 			RT_CPU <= 0;
 			RDY <= 1;
 			SP_BUSY <= 0;
+			DH <= 0;
 			MEM_ROW <= '0;
 			{FLASHWRITE,LOAD} <= '0;
 			{MWT_EXEC,FW_EXEC} <= '0;
@@ -383,6 +399,7 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 			SRDY <= SOM && RDY && RDY_OLD && !RT_PEND && !MWT_PEND && (!SC && SC_OLD ? HIT_NX : HIT_P);
 			RT_EXEC <= RT_PEND;
 			SP_BUSY <= MWT_PEND | MWT_EXEC | FW_PEND | FLASHWRITE | FW_EXEC;
+			DH <= DH_ON && DISP_DMA && !CON_WAIT;
 
 			A_FF <= A;
 			D_FF <= D;
@@ -399,7 +416,7 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 					//a read transfer of the video: its own register, it does not wait for a copy
 					RT_PEND <= 1;
 					RT_CPU <= 0;
-				end else if (MWT_EXEC || FW_EXEC) begin
+				end else if ((MWT_EXEC || FW_EXEC) && !DR_OK && !RF_OK) begin
 					RDY <= 0;
 				end else if (!OE_N && WE_N) begin
 					RT_PEND <= 1;
@@ -579,6 +596,10 @@ module P3DO_VRAM #(parameter int CACHE_BANKS = 7)
 						CQ_SLOT <= CSLOT(LG_ROW[WANT_H]);
 						TA_SLOT <= CSLOT(LG_ROW[WANT_H]);
 						C_ST <= C_LOOK;
+					end else if (DH && !V_BLOCKED) begin
+						//fix_disp: MADAM asks for or runs a display DMA and the console does not wait for the memory: no copy
+						//register fill, cache fill or dirty-row write now (an SDRAM block stops the console, and the display list
+						//of the next lines would be read late: picture one line off, colour words lost)
 					end else if (WB_PEND) begin
 						//the next block of the dirty row being written to the SDRAM
 						EREQ <= 1;

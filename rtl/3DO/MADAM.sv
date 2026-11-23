@@ -83,6 +83,9 @@ module MADAM
 	output             SYSRAM_EN,
 	
 	output             FIELD,
+	output             DISP_DMA,		//fix_disp: a display DMA (display list, video transfers) is asked for or running
+	output             DISP_BUS,		//fix_disp2: the bus is in a display DMA state (MADAM alone uses it, and reads)
+	output             REF_BUS,		//fix_ref: the bus is in a memory refresh cycle
 	
 	input              DBG_SPR_EN,
 	input      [ 7: 0] DBG_EXT,
@@ -185,6 +188,10 @@ module MADAM
 	bit          VIDMID_REQ;
 	bit          VIDMID_CURR,VIDMID_FIRST;
 	bit          VIDOUT_ACK;
+	assign DISP_DMA = CLUTWR_REQ | VIDOUT_REQ | VIDMID_REQ | (BUS_STATE >= CLUT_PREINIT1 && BUS_STATE <= VID_MIDCURR1);	//fix_disp
+	assign DISP_BUS = (BUS_STATE >= CLUT_PREINIT1 && BUS_STATE <= VID_MIDCURR1);	//fix_disp2
+	assign REF_BUS = (BUS_STATE == REF_PREINIT1 || BUS_STATE == REF_INIT0 || BUS_STATE == REF_INIT1 || BUS_STATE == REF_WRITE0 ||
+	                  BUS_STATE == REF_WRITE1 || BUS_STATE == REF_WRITE2 || BUS_STATE == REF_WRITE3);	//fix_ref
 	AddrGenCtl_t SPORT_AG_CTL;
 	bit          SPORT_GRANT;
 	bit          SPORT_LINE0;

@@ -82,6 +82,9 @@ module P3DO
 	input              SRDY,
 	
 	output             FIELD,
+	output             DISP_DMA,		//fix_disp: MADAM's display DMA is asked for or running
+	output             DISP_BUS,		//fix_disp2: MADAM's bus is in a display DMA state
+	output             REF_BUS,		//fix_ref: MADAM's bus is in a memory refresh cycle
 
 	input              VCLK,
 	output     [23: 0] RGB,
@@ -325,6 +328,9 @@ module P3DO
 		.SYSRAM_EN(MADAM_SYSRAM_EN),
 		
 		.FIELD(FIELD),
+		.DISP_DMA(DISP_DMA),
+		.DISP_BUS(DISP_BUS),
+		.REF_BUS(REF_BUS),
 		
 		.DBG_SPR_EN(SCRN_EN[1]),
 		.DBG_EXT(DBG_EXT),

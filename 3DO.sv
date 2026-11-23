@@ -591,6 +591,10 @@ module emu
 	wire [31: 0] VRAM_SQ;
 	wire         VRAM_LSRDY,VRAM_RSRDY;
 	wire         P3DO_FIELD;
+	wire         P3DO_DISP_DMA;	//fix_disp: MADAM's display DMA is asked for or running
+	wire         P3DO_DISP_BUS;	//fix_disp2: MADAM's bus is in a display DMA state
+	wire         P3DO_REF_BUS;	//fix_ref: MADAM's bus is in a memory refresh cycle
+	wire         vsd_con_wait;	//fix_disp: the console waits for the memory (pause_mem)
 	
 	wire [ 7: 0] R, G, B;
 	wire         HS_N,VS_N;
@@ -713,6 +717,9 @@ module emu
 		.SRDY(VRAM_LSRDY & VRAM_RSRDY),
 		
 		.FIELD(P3DO_FIELD),
+		.DISP_DMA(P3DO_DISP_DMA),
+		.DISP_BUS(P3DO_DISP_BUS),
+		.REF_BUS(P3DO_REF_BUS),
 		
 		.VCE(VCE),
 		.RGB({R,G,B}),
@@ -1072,6 +1079,10 @@ module emu
 		.SQ(VRAM_SQ[31:16]),
 		.QSF(LQSF),
 		.SRDY(VRAM_LSRDY),
+		.DISP_DMA(P3DO_DISP_DMA),
+		.CON_WAIT(vsd_con_wait),
+		.DISP_BUS(P3DO_DISP_BUS),
+		.REF_BUS(P3DO_REF_BUS),
 		
 		.EREQ(vsd_lreq),
 		.EWE(vsd_lwe),
@@ -1114,6 +1125,10 @@ module emu
 		.SQ(VRAM_SQ[15:0]),
 		.QSF(RQSF),
 		.SRDY(VRAM_RSRDY),
+		.DISP_DMA(P3DO_DISP_DMA),
+		.CON_WAIT(vsd_con_wait),
+		.DISP_BUS(P3DO_DISP_BUS),
+		.REF_BUS(P3DO_REF_BUS),
 		
 		.EREQ(vsd_rreq),
 		.EWE(vsd_rwe),
@@ -1220,6 +1235,7 @@ module emu
 		end
 	end
 	wire pause = pause_mem | vsd_pause;
+	assign vsd_con_wait = pause_mem;	//fix_disp
 	
 	/////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 	wire downloading = save_download;
