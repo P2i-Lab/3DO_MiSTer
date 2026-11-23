@@ -528,82 +528,11 @@ module emu
 		end
 	end
 
-	/*Frambuffer position in games:
-	3D Atlas (US): 0x2CC000
-	Alone in the Dark (US): 0x248800
-	Blade Force (US): 0x200000/0x225800/0x24B000
-	Cannon Fodder (US): 0x2AE800/0x2D2800
-	Casper (US): 0x200000/0x225800/0x24B000
-	DeathKeep (US): 0x250000/0x278000 (FMV only)
-	FIFA International Soccer (US, Korea): 0x2AC000/0x2D2000
-	Gex (US, EU): 0x25C800/0x282000/0x2A7800/0x2CD000 (FMV only)
-	Psychic Detective (US) (Discs 1, 2 and 3, same program): 0x28B800/0x2B1000
-	Quarantine (US): 0x274BA4
-	Road & Track Presents - The Need for Speed (US, EU): 0x2AD000/0x2D3000
-	Seal of the Pharaoh (US): 0x270800/0x296000
-	Bodyconscious Digital Rave! Part 1 - Shinjuku & Takasaki (Japan): 0x24B000
-	Live! 3DO Magazine CD-ROM 1 (Japan): 0x280000/0x2A5800
-	Pretty Soldier SailorMoon S (Japan): 0x24C000 (FMV only)
-	Most others: 0x200000/0x225800
-	*/
-	
-	//FPGA has enough BRAM to replace 0x70000 bytes (out of 0x100000 bytes) of VRAM.  
-	//Of these, 0x6C000 bytes start at BRAM_OFFS*0x10000, while the remaining 0x4000 bytes always start at offset 0xFC000 (VDL). 
-	reg  [ 3: 0] BRAM4_OFFS;//Block 0x40000
-	reg  [ 3: 0] BRAM2_OFFS;//Block 0x20000
-	reg  [ 3: 0] BRAM1_OFFS;//Block 0x10000
-	reg          NEED_DSP_PAUSE;
-	reg          disc_new = 0;	//disc info received, settings not applied yet
-	always @(posedge clk_sys) begin
-		reg [31: 0] msf,id;
-	
-		if (cdd_info_download && ioctl_wr) begin
-			if (ioctl_addr == 25'h004) begin
-				msf[31:16] <= {ioctl_data[7:0],ioctl_data[15:8]};
-			end 
-			if (ioctl_addr == 25'h006) begin
-				msf[15:0] <= {ioctl_data[7:0],ioctl_data[15:8]};
-			end 
-			
-			if (ioctl_addr == 25'h458) begin
-				id[31:16] <= {ioctl_data[7:0],ioctl_data[15:8]};
-			end 
-			if (ioctl_addr == 25'h45A) begin
-				id[15:0] <= {ioctl_data[7:0],ioctl_data[15:8]};
-			end 
-			if (ioctl_addr == 25'h480) disc_new <= 1;
-		end
-		
-		//The settings of a disc apply from a console reset on: at once for a disc loaded with a reset,
-		//at the next reset for a disc swapped while the console runs (the boot ROM restarts the console
-		//through the watchdog when the title does not accept another disc)
-		if (disc_new && reset) begin
-			disc_new <= 0;
-			{BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h4,4'h6};
-			NEED_DSP_PAUSE <= 0;
-			if (id == 32'h29E4D882) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//3D Atlas (US)
-			if (id == 32'h274E924C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h2,4'h8};//Alone in the Dark (US)
-			if (id == 32'h0340842C) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Cannon Fodder (US)
-			if (id == 32'h2D731C98) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//FIFA International Soccer (US, Korea)
-			if (id == 32'h2584F855) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 1)
-			if (id == 32'h3A43EB1B) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 2)
-			if (id == 32'h0EA661F9) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Psychic Detective (US) (Disc 3)
-			if (id == 32'h031BED09) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US)
-			if (id == 32'h356B12E2) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Quarantine (US) (RE2)
-			if (id == 32'h06DE0DC2) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'hC,4'hA,4'h9};//Road & Track Presents - The Need for Speed (US, EU)
-			if (id == 32'h2D95DCB6) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'hC};//Seal of the Pharaoh (US)
-			if (id == 32'h07732394) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h0,4'h6,4'h4};//Space Hulk - Vengeance of the Blood Angels (US)
-			if (id == 32'h0387DF78) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h4,4'h8,4'hA};//Bodyconscious Digital Rave! Part 1 - Shinjuku & Takasaki (Japan)
-			if (id == 32'h213128DD) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'hC,4'hE};//Live! 3DO Magazine CD-ROM 1 (Japan)
-				if (id == 32'h087289AC) {BRAM4_OFFS,BRAM2_OFFS,BRAM1_OFFS} <= {4'h8,4'h6,4'h5};//Strahl (US): screens 0x24C000/0x271800/0x297000 (fix_strahlbram)
-			
-			if (id == 32'h25609184                       ) NEED_DSP_PAUSE <= 1;//Blade Force (US)
-			if (id == 32'h043DCD69 && msf == 32'h69026900) NEED_DSP_PAUSE <= 1;//Decathlon (US) (Unl)
-			if (id == 32'h0A9B739E                       ) NEED_DSP_PAUSE <= 1;//Killing Time (US) (RE1)
-			if (id == 32'h06065D10                       ) NEED_DSP_PAUSE <= 1;//Snow Job Starring Tracy Scoggins (US)
-			if (id == 32'h3AC732DE                       ) NEED_DSP_PAUSE <= 1;//BattleSport (USA) (Beta) (1995-09-22)
-		end
-	end
+	//No per-game setting: the whole VRAM is in the SDRAM, so there are no block-RAM windows to place for each game, and the
+	//DSP stops with the console in every game, as the CPU does (on a real 3DO nothing stops; here the console only stops for
+	//its memory, about a microsecond at a time). Five games decode their videos with the DSP and need it (upstream issue #2).
+	//The debug overlay still takes window offsets: with VRAM_SDRAM it shows every VRAM address in cyan.
+	wire [ 3: 0] BRAM4_OFFS = 4'h0, BRAM2_OFFS = 4'h4, BRAM1_OFFS = 4'h6;
 	
 	wire [23: 2] LA;
 	wire         LRAS0_N;
@@ -718,7 +647,7 @@ module emu
 		.VCLK(clk_vid),
 		.EN(1),
 		.PAUSE(pause),
-		.DSP_PAUSE(pause & NEED_DSP_PAUSE),
+		.DSP_PAUSE(pause),
 		
 		.PAL(PAL),
 		
