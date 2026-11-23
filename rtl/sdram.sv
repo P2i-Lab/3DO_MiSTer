@@ -217,6 +217,14 @@ module sdram
 
 	//Rows the main bus keeps open
 	reg          lpage_opened = 0,rpage_opened = 0;
+	//fix_w8: a write of the console seen while st_num is saturated (8: the console stopped in the middle of a memory cycle and
+	//goes on with it) has no slot; it is kept here, one per channel, and goes out in a free clock of that phase, left first
+	reg          w8_lp = 0, w8_rp = 0, w8_ls = 0, w8_rs = 0;	//a kept write; the write strobe seen was kept
+	reg  [22: 2] w8_la, w8_ra;
+	reg  [15: 0] w8_ld, w8_rd;
+	reg  [ 1: 0] w8_lbe, w8_rbe, w8_lbank, w8_rbank;
+	reg  [ 1: 0] w8_lwr = 0, w8_rwr = 0;	//clocks left before a precharge of the channel after a kept write (tWR)
+	reg          w8_lt = 0, w8_rt = 0;	//the write strobe of the channel was taken by its slot (no second copy)
 	reg  [ 1: 0] lopen_bank = 2'd0,ropen_bank = 2'd1;
 	reg  [22:11] lopen_row = '0,ropen_row = '0;
 	wire [ 1: 0] lbank = lvram ? 2'd2 : 2'd0;
@@ -807,6 +815,7 @@ module sdram
 			end
 
 			if (lras && lcode == 4'h2 && (st_num[2:0] == 3'd2 || st_num[2:0] == 3'd6) && lpage_opened) begin
+				w8_lt <= 1;	//fix_w8: taken by its slot
 				state[0].CMD  <= CTRL_CAS;
 				state[0].ADDR <= {laddr,1'b0};
 				state[0].WE   <= 1;
@@ -823,6 +832,7 @@ module sdram
 `endif
 			end
 			if (rras && rcode == 4'h2 && (st_num[2:0] == 3'd3 || st_num[2:0] == 3'd7) && rpage_opened) begin
+				w8_rt <= 1;	//fix_w8: taken by its slot
 				state[0].CMD  <= CTRL_CAS;
 				state[0].ADDR <= {raddr,1'b0};
 				state[0].WE   <= 1;
@@ -834,6 +844,46 @@ module sdram
 `ifdef DEBUG
 				dbg_cross_page <= (dbg_open_rpage != raddr[21:11]);
 `endif
+			end
+
+			//fix_w8: a write seen while st_num is saturated is kept, then sent in a clock of that phase without another command
+			if (w8_lwr != 2'd0) w8_lwr <= w8_lwr - 2'd1;
+			if (w8_rwr != 2'd0) w8_rwr <= w8_rwr - 2'd1;
+			if (st_num == 4'd8 && lras && lcode == 4'h2 && |lwe && lpage_opened && !w8_ls && !w8_lp && !w8_lt) begin
+				w8_lp <= 1; w8_la <= laddr; w8_ld <= din[31:16]; w8_lbe <= lwe; w8_lbank <= lbank; w8_ls <= 1;
+			end else if (!(lras && lcode == 4'h2 && |lwe)) begin w8_ls <= 0; w8_lt <= 0; end
+			if (st_num == 4'd8 && rras && rcode == 4'h2 && |rwe && rpage_opened && !w8_rs && !w8_rp && !w8_rt) begin
+				w8_rp <= 1; w8_ra <= raddr; w8_rd <= din[15:0]; w8_rbe <= rwe; w8_rbank <= rbank; w8_rs <= 1;
+			end else if (!(rras && rcode == 4'h2 && |rwe)) begin w8_rs <= 0; w8_rt <= 0; end
+			//(data and byte mask of a kept write by registered signals only, as for the slots: they count only with a write)
+			if (st_num == 4'd8 && w8_lp) begin state[0].DATA <= w8_ld; state[0].BE <= w8_lbe; end
+			else if (st_num == 4'd8 && w8_rp) begin state[0].DATA <= w8_rd; state[0].BE <= w8_rbe; end
+			if (st_num != 4'd8) begin
+				w8_lp <= 0;
+				w8_rp <= 0;
+			//(not 2 or 3 clocks after a read: its data is then on DQ)
+			end else if ((w8_lp || w8_rp) && !l_go && !r_go && !(!lras && lpage_opened) &&
+			             !(state[2].RDL || state[2].RDR || state[3].RDL || state[3].RDR)) begin
+				state[0].CMD  <= CTRL_CAS;
+				state[0].WE   <= 1;
+				state[0].MAIN <= 1;
+				if (w8_lp) begin
+					state[0].ADDR  <= {w8_la,1'b0};
+					state[0].BANK  <= w8_lbank;
+					state[0].CH    <= 0;
+					state[0].OBANK <= lopen_bank;
+					state[0].OROW  <= lopen_row;
+					w8_lp <= 0;
+					w8_lwr <= 2'd3;
+				end else begin
+					state[0].ADDR  <= {w8_ra,1'b0};
+					state[0].BANK  <= w8_rbank;
+					state[0].CH    <= 1;
+					state[0].OBANK <= ropen_bank;
+					state[0].OROW  <= ropen_row;
+					w8_rp <= 0;
+					w8_rwr <= 2'd3;
+				end
 			end
 
 			//the access in state[0] is of another row (x_mis, it does not go out): a write is kept for the end of the
@@ -883,12 +933,12 @@ module sdram
 			end
 
 			//(not while a session runs: the row a session opens for an access to another row stays open for its CAS)
-			if (!lras && lpage_opened && st_num[2:0] == 3'd0 && !e_active) begin
+			if (!lras && lpage_opened && st_num[2:0] == 3'd0 && !e_active && w8_lwr == 2'd0) begin
 				state[0].CMD  <= CTRL_PRE;
 				state[0].BANK <= lopen_bank;
 				lpage_opened <= 0;
 			end
-			if (!rras && rpage_opened && st_num[2:0] == 3'd1 && !e_active) begin
+			if (!rras && rpage_opened && st_num[2:0] == 3'd1 && !e_active && w8_rwr == 2'd0) begin
 				state[0].CMD  <= CTRL_PRE;
 				state[0].BANK <= ropen_bank;
 				rpage_opened <= 0;
