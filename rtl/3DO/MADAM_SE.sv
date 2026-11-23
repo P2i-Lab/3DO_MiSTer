@@ -2111,6 +2111,8 @@ module MADAM_SE
 	wire [32: 0] GEO_EXT = {1'b0,GEO_VABS} + {5'b00000,GEO_HABS[31:4]};	//height of one source pixel on the screen, 16.16
 	bit  [ 4: 0] GEO_LINES;
 	bit          GEO_HALF;	//ex15: one source row is at most half a line high
+	bit          GEO_EXT15;	//fix_rot16: the turned extent of one source pixel is 1.5 lines or more
+	bit          GEO_AREA125;	//fix_rot16: one source pixel covers 1.25 screen pixels or more
 	bit          GEO_AXIS,GEO_Y12;
 	bit          GEO_T90;	//fix_rot90: turned by 90 or 270 degrees (HDX = VDY = 0)
 	//ACE, vertical scale between 1 and 2: 12 + K * (scale - 1) per source pixel of one engine (fix_y12p)
@@ -2158,6 +2160,8 @@ module MADAM_SE
 	always @(posedge CLK) if (EN && CE_R) begin
 		GEO_LINES <= |GEO_EXT[32:20] ? 5'd31 : GEO_EXT[19:16] + (|GEO_EXT[15:0] ? 5'd1 : 5'd0);
 		GEO_HALF <= ~|GEO_EXT[32:16] && GEO_EXT[15:0] <= 16'h8000;
+		GEO_EXT15 <= GEO_EXT >= 33'h0_0001_8000;
+		GEO_AREA125 <= TSK_AREA >= 33'h0_0001_4000;
 		GEO_AXIS <= ~|{GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L};
 		GEO_T90 <= ~|{GEO_DX_H,GEO_DX_L,GEO_LDY_H,GEO_LDY_L} && |{GEO_LDX_H,GEO_LDX_L} && |{GEO_DY_H,GEO_DY_L};
 		ACE_ON <= SCOB_FLAG.ACE;
@@ -2179,7 +2183,7 @@ module MADAM_SE
 	wire [ 7: 0] PACE_LINES = GEO_LINES >= 5'd20 ? 8'd144 : GEO_LINES >= 5'd3 ? 8'd8 * (GEO_LINES - 5'd2) : 8'd0;	//every line past the second
 	wire [ 7: 0] PACE_ACE = GEO_Y12 ? 8'd12 + Y12_ADD : ((SCOB_PRE0.BPP == 3'd6 ? 8'd4 : 8'd4) - (SCOB_FLAG.LCE ? 8'd1 : 8'd0)) + GEO_ACEX + (GEO_T90 ? 8'd14 : 8'd0);	//ACE + LCE: FZ-10 4 to 9 % faster than ACE alone
 	wire [ 7: 0] PACE_PIX = SCOB_FLAG.ACE ? PACE_ACE :
-	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_LINES >= 5'd2 ? 8'd4 : GEO_HALF ? 8'd2 : 8'd1) :	/*experiment ex6: 3 -> 1; ex15: 2 on half-line rows*/
+	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_AXIS ? (GEO_LINES >= 5'd2 ? 8'd4 : GEO_HALF ? 8'd2 : 8'd1) : GEO_EXT15 || GEO_AREA125 ? 8'd4 : GEO_T90 ? 8'd3 : GEO_HALF ? 8'd2 : 8'd1) :	/*fix_rot16 (vsd50): turned or sheared cels*/	/*experiment ex6: 3 -> 1; ex15: 2 on half-line rows*/
 	                        SCOB_PRE0.BPP >= 3'd3 ? 8'd1 : 8'd0;
 	//no penalty for two pixels written in the same cycle in different words: FZ-10 disc 3.4 page J, ACE at y 0-3 costs the same
 	//a transparent pixel, on top of the drawn pixel above
