@@ -365,6 +365,19 @@ module CLIO_VIDEO
 		end
 	end 
 	
+	//fix_row0 (vsd54): only a capture inside the picture window READ_EN makes a pixel. The colour words of the display list are
+	//captured too, at H 1340-1471, and the video encoder counts pixels from the start of its own line: a colour word that came after
+	//that start (the VRAM in the SDRAM can delay them) was written as one of the first pixels of the next line.
+	bit  [ 7: 1] CAPPIX;	//CAPPIX[n]: the capture now at CAPENDn_N was inside READ_EN
+	always @(posedge CLK or negedge RST_N) begin
+		if (!RST_N) begin
+			CAPPIX <= '0;
+		end
+		else if (EN && VCE) begin
+			CAPPIX <= {CAPPIX[6:1],READ_EN};
+		end
+	end
+	
 	bit          CAPEN_DIV;
 	always @(posedge CLK or negedge RST_N) begin		
 		if (!RST_N) begin
@@ -382,7 +395,7 @@ module CLIO_VIDEO
 	wire PDS_CLK2 = (~CAPEND7_N | ~CAPEND9_N) &  CAPEN_DIV;
 	bit  [23: 0] LP0,LP1,LP2,LP3;
 	bit          PDESTACKER_DE;
-	CLIO_24DESTACKER PDESTACKER(CLK, VCE, EN, READ_START, PDS_CLK1, PDS_CLK2, RGB, ~CAPEND7_N, LP0, LP1, LP2, LP3, PDESTACKER_DE);
+	CLIO_24DESTACKER PDESTACKER(CLK, VCE, EN, READ_START, PDS_CLK1, PDS_CLK2, RGB, ~CAPEND7_N & CAPPIX[7], LP0, LP1, LP2, LP3, PDESTACKER_DE);	//fix_row0
 	
 	wire ION = ~FIRST_LINE;
 	bit  [23: 0] INTERPOL_OUT;
