@@ -2157,6 +2157,26 @@ module MADAM_SE
 	bit  [ 7: 0] TSK_PACE;
 	always @(posedge CLK) if (EN && CE_R) TSK_PACE <= |TSK_NET[51:24] ? 8'd255 : TSK_NET[23:16];
 	bit  [ 7: 0] GEO_ACEX;
+	wire [ 4: 0] ROT_AK = 5'd8;	//fix_rot5 A: cost per source pixel and engine, ACE 16-bit unpacked turned cels
+	wire [ 1: 0] ROT_BM = 2'd1;	//fix_rot5 B: 1 = turned cels spanning two lines, with ACE or below 16 bits
+	//fix_rot5 A: two neighbouring source rows of the ACE engines on the same line (same half of the frame buffer)
+	wire         ROT_AXIS0 = ~|{GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L};
+	wire         ROT_T900 = ~|{GEO_DX_H,GEO_DX_L,GEO_LDY_H,GEO_LDY_L} && |{GEO_LDX_H,GEO_LDX_L} && |{GEO_DY_H,GEO_DY_L};
+	wire [21: 0] ROT_APROD = {5'd0,ROT_AK} * {5'd0,17'h10000 - GEO_VABS[16:0]};
+	wire         ROT_BLS = 1'b1;	//fix_rot6: rule A spares the cels that read the frame buffer (blends)
+	//fix_rot6: the cel reads the frame buffer (blend): the read-modify-write already pays the turning cost of the FZ-10
+	wire         ROT_RDA = PPMPCA.S1 || PPMPCA.S2 == 2'd2, ROT_RDB = PPMPCB.S1 || PPMPCB.S2 == 2'd2;
+	wire         ROT_RD = SCOB_FLAG.DOVER == 2'b11 ? ROT_RDB : SCOB_FLAG.DOVER == 2'b00 ? ROT_RDA && ROT_RDB : ROT_RDA;
+	wire         ROT_AON = |ROT_AK && SCOB_PRE0.BPP == 3'd6 && SCOB_FLAG.ACE && !SCOB_FLAG.PACKED && !ROT_AXIS0 && !ROT_T900 &&
+	                       !(ROT_BLS && ROT_RD) &&
+	                       GEO_VABS <= 32'h00010000 && TSK_AREA >= 33'h0_0000_F333;
+	//fix_rot5 B: 14 x extent + 8 x min(area, 2) - 36.7, in 16.16
+	wire [32: 0] ROT_AREA2 = TSK_AREA > 33'h0_0002_0000 ? 33'h0_0002_0000 : TSK_AREA;
+	wire signed [37: 0] ROT_BX = $signed({5'd0,GEO_EXT} << 4) - $signed({5'd0,GEO_EXT} << 1) + $signed({5'd0,ROT_AREA2} << 3) - 38'sd2405171;
+	wire signed [37: 0] ROT_BR = ROT_BX + 38'sd32768;
+	wire         ROT_BON = |ROT_BM && !ROT_AXIS0 && GEO_EXT > 33'h0_0001_0000 && GEO_EXT <= 33'h0_0002_0000 &&
+	                       (SCOB_FLAG.ACE || SCOB_PRE0.BPP != 3'd6 || ROT_BM == 2'd2);
+	bit  [ 7: 0] ROT_PAR,ROT_B;
 	always @(posedge CLK) if (EN && CE_R) begin
 		GEO_LINES <= |GEO_EXT[32:20] ? 5'd31 : GEO_EXT[19:16] + (|GEO_EXT[15:0] ? 5'd1 : 5'd0);
 		GEO_HALF <= ~|GEO_EXT[32:16] && GEO_EXT[15:0] <= 16'h8000;
@@ -2165,6 +2185,8 @@ module MADAM_SE
 		GEO_AXIS <= ~|{GEO_LDX_H,GEO_LDX_L,GEO_DY_H,GEO_DY_L};
 		GEO_T90 <= ~|{GEO_DX_H,GEO_DX_L,GEO_LDY_H,GEO_LDY_L} && |{GEO_LDX_H,GEO_LDX_L} && |{GEO_DY_H,GEO_DY_L};
 		ACE_ON <= SCOB_FLAG.ACE;
+		ROT_PAR <= ROT_AON ? {2'd0,ROT_APROD[21:16] + {5'd0,ROT_APROD[15]}} : 8'd0;
+		ROT_B <= !ROT_BON || ROT_BX <= 38'sd0 ? 8'd0 : ROT_BR >= 38'sd524288 ? 8'd8 : {4'd0,ROT_BR[19:16]};
 		GEO_Y12 <= GEO_AXIS && GEO_VABS[31:16] == 16'd1 && |GEO_VABS[15:0];
 		Y12_ADD <= |Y12_PROD[31:24] ? 8'd255 : Y12_PROD[23:16];
 		GEO_ACEX <= !GEO_AXIS ? 8'd0 :
@@ -2180,8 +2202,8 @@ module MADAM_SE
 	                          GEO_LINES >= 5'd20 ? 8'd232 :
 	                          SCOB_FLAG.ACE ? 8'd11 * (GEO_LINES - 5'd1) : 8'd2 + 8'd12 * (GEO_LINES - 5'd1);
 	//a source pixel drawn: without ACE about 54 ns more per word of source; with ACE, no gain between 1 and 2 of vertical scale
-	wire [ 7: 0] PACE_LINES = GEO_LINES >= 5'd20 ? 8'd144 : GEO_LINES >= 5'd3 ? 8'd8 * (GEO_LINES - 5'd2) : 8'd0;	//every line past the second
-	wire [ 7: 0] PACE_ACE = GEO_Y12 ? 8'd12 + Y12_ADD : ((SCOB_PRE0.BPP == 3'd6 ? 8'd4 : 8'd4) - (SCOB_FLAG.LCE ? 8'd1 : 8'd0)) + GEO_ACEX + (GEO_T90 ? 8'd14 : 8'd0);	//ACE + LCE: FZ-10 4 to 9 % faster than ACE alone
+	wire [ 7: 0] PACE_LINES = GEO_LINES >= 5'd20 ? 8'd144 : GEO_LINES >= 5'd3 ? 8'd8 * (GEO_LINES - 5'd2) : ROT_B;	//fix_rot5 B on two lines	//every line past the second
+	wire [ 7: 0] PACE_ACE = GEO_Y12 ? 8'd12 + Y12_ADD : ((SCOB_PRE0.BPP == 3'd6 ? 8'd4 : 8'd4) - (SCOB_FLAG.LCE ? 8'd1 : 8'd0)) + GEO_ACEX + (GEO_T90 ? 8'd14 : 8'd0) + ROT_PAR;	/*fix_rot5 A*/	//ACE + LCE: FZ-10 4 to 9 % faster than ACE alone
 	wire [ 7: 0] PACE_PIX = SCOB_FLAG.ACE ? PACE_ACE :
 	                        SCOB_PRE0.BPP == 3'd6 ? (GEO_AXIS ? (GEO_LINES >= 5'd2 ? 8'd4 : GEO_HALF ? 8'd2 : 8'd1) : GEO_EXT15 || GEO_AREA125 ? 8'd4 : GEO_T90 ? 8'd3 : GEO_HALF ? 8'd2 : 8'd1) :	/*fix_rot16 (vsd50): turned or sheared cels*/	/*experiment ex6: 3 -> 1; ex15: 2 on half-line rows*/
 	                        SCOB_PRE0.BPP >= 3'd3 ? 8'd1 : 8'd0;
