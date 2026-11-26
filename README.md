@@ -31,7 +31,7 @@ What a player notices. "Official" means already in srg320's core or in Main_MiST
 - **Panasonic FZ-10 BIOS.** Games now start with it: before, the console stopped on the 3DO logo. The logo also shows without the blue background and the white lines. Checked on a MiSTer.
 - **Saves.** Main_MiSTer formats a new, empty save file, so games can save from the first run. Before, Need for Speed could say "NVRAM Full". Official (MiSTer-devel/Main_MiSTer#1415).
 - **Audio CDs.** The console's CD player no longer hangs (official, MiSTer-devel/3DO_MiSTer#24), and it plays audio CDs with left and right in place (proposed: MiSTer-devel/3DO_MiSTer#25, MiSTer-devel/3DO_MiSTer#27 and MiSTer-devel/Main_MiSTer#1414). Checked on a MiSTer.
-- **Light guns.** Light gun games such as Mad Dog McCree and Crime Patrol can be played with PlayStation 1 GunCons on the SNAC port, or with a joystick or a mouse, with one or two guns. The gun follows measurements of two real 3DO light guns on our FZ-10. Checked on a MiSTer with a GunCon on a CRT TV. Plugging in real 3DO guns through a SNAC adapter is a later step. In the SDRAM core, the guns come after the pads in the chain, as with a Gamegun plugged into a pad (the set-up Demolition Man expects).
+- **Light guns.** Light gun games such as Mad Dog McCree and Crime Patrol can be played with PlayStation 1 GunCons on the SNAC port, or with a joystick or a mouse, with one or two guns. The gun follows measurements of two real 3DO light guns on our FZ-10. Checked on a MiSTer with a GunCon on a CRT TV. Plugging in real 3DO guns through a SNAC adapter is a later step. In the SDRAM core, the guns come after the pads in the chain, as with a Gamegun plugged into a pad (the set-up Demolition Man expects). The SDRAM core vsd57 also takes a Sega Saturn light gun on the SNAC port, for one player (in simulation).
 - **Loading times.** The CD drive reads at the real console's double speed and takes the time a real drive needs to move its head, as measured on our FZ-10. Mad Dog McCree goes from the 3DO logo to its first scene in 22.5 s on our test core, 22.35 s on a real FZ-10, and about 10 s before this change (in simulation). Checked on a MiSTer.
 - **Drawing speed.** The drawing engine follows the real console. Of 1690 drawing times measured on our FZ-10, 78 % are within 10 % on our test core. Before, some pictures were drawn twice as fast as on a real 3DO. On the SDRAM core vsd48, 80 % of the 898 drawing times of the test discs 3.6 and 3.7 are within 10 %, with a mean gap of 6.8 %. Some cases are still off.
 - **Sound rate.** 43 960 samples a second, as measured on our FZ-10, instead of 44 100.
@@ -40,7 +40,7 @@ What a player notices. "Official" means already in srg320's core or in Main_MiST
 
 ### The SDRAM core: the VRAM in the SDRAM module
 
-Branch [`feat/vram-sdram`](https://github.com/P2i-Lab/3DO_MiSTer/tree/feat/vram-sdram). Its test core, vsd53, can be downloaded from [p2i-lab.com/mister](https://p2i-lab.com/mister/); the RBF is not on GitHub.
+Branch [`feat/vram-sdram`](https://github.com/P2i-Lab/3DO_MiSTer/tree/feat/vram-sdram). Its test core, vsd57, can be downloaded from [p2i-lab.com/mister](https://p2i-lab.com/mister/), with the previous one, vsd53; the RBF is not on GitHub.
 
 **Why.** The 3DO has 1 MB of VRAM, where it keeps its pictures and its cels. This memory has functions of its own: a serial port that sends the picture to the video, flash writes that clear a whole row, and copies of whole rows. The FPGA of the DE10-Nano has enough block RAM for only 448 KB of it (0x70000 bytes, as the comment in `3DO.sv` says), so the official core keeps three windows of the VRAM, plus its last 16 KB, in block RAM, and the rest in the DDR3. The DDR3 is shared with Linux and the MiSTer scaler, and its delays vary: when the video or the drawing engine waits for it, the console pauses, and data that come too late can show on the screen. So each game's screens must fall inside the block-RAM windows. A table in `3DO.sv` moves the windows for the games that keep their screens elsewhere: 11 games in the official core (upstream 2cf0583), 15 in our test core 1114i. The other games get the default windows.
 
@@ -53,12 +53,13 @@ Branch [`feat/vram-sdram`](https://github.com/P2i-Lab/3DO_MiSTer/tree/feat/vram-
 - The CPU's row copies have a register of their own, apart from the video's serial register. While a copy or a flash write is still running, the CPU's next VRAM access waits off the bus, so the video transfers stay on time. Since vsd53, MADAM's display-list reads and its memory refresh no longer wait for a copy: while MADAM reads the display list or the picture lines, no copy fill starts, and those reads pass at once when they touch neither the copied row, the written row nor the cache slot being filled.
 - `rtl/sdram.sv` gets a block engine for these transfers. The console stops while the engine owns the SDRAM, and the cel engine counts those stopped cycles in its pace (`CE_RP`): a cel takes the time of the timing model, never less.
 
-**How it was checked.** A simulator of the whole system (Verilator, with an SDRAM model that checks the SDRAM timing rules) ran our test discs and Strahl's intro on every version. It showed five defects, all corrected:
+**How it was checked.** A simulator of the whole system (Verilator, with an SDRAM model that checks the SDRAM timing rules) ran our test discs and Strahl's intro on every version. It showed six defects, all corrected:
 - black line pairs in Strahl's animated sequence, before the cache;
 - dots on Strahl's title screen, at column 0 of the VRAM rows: the CPU's serial-port cycles were taken as main-bus writes (seen on a MiSTer with vsd43, corrected in vsd44);
 - a burst of late words when the screen changes (corrected in vsd46);
 - stray dots in the console's audio CD player: a console write seen while the console was stopped in the middle of a memory cycle was lost (corrected in vsd50, checked on a MiSTer);
-- the menus of Crime Patrol and Mad Dog McCree jumped by one line and lost colour words: these games copy their background at the top of each frame from rows that are not in the cache, and MADAM's display-list reads waited behind those copies (corrected in vsd53, checked on a MiSTer).
+- the menus of Crime Patrol and Mad Dog McCree jumped by one line and lost colour words: these games copy their background at the top of each frame from rows that are not in the cache, and MADAM's display-list reads waited behind those copies (corrected in vsd53, checked on a MiSTer);
+- a few stray pixels at the start of the first line of the picture, then the right line shifted to the right (11 pixels in the menu of Mad Dog McCree, one frame in two): just before the picture, the palette's colour words come down the same serial path as the pixels; when the SDRAM delayed them, they came after the line had started and CLIO wrote them as pixels. Now only a word received in the visible part of the line becomes a pixel (corrected in vsd54).
 
 The 24 reference drawings of the test disc give the same CRCs as on the FZ-10. On a real MiSTer, vsd46 ran the 640 cases of the test disc 3.7 with a mean gap of 0.3 % to its simulation.
 
@@ -70,9 +71,11 @@ The 24 reference drawings of the test disc give the same CRCs as on the FZ-10. O
 
 vsd50 adds a pace of its own for turned or sheared 16-bit cels without ACE, from the measurements of the discs 3.6 and 3.7.
 
+vsd55 adds two rules for turned cels, from the same measurements, which showed some turned cels drawn up to 20 % too fast: a turned, unpacked 16-bit cel with ACE pays a second memory access when the two drawing engines write on the same line, which happens more often as the angle nears 90 degrees (cels blended with the picture already paid it); and a turned cel with ACE, or of fewer than 16 bits per pixel, whose source pixel covers more than one and up to two screen lines (scaled 1.3 to 1.7 times, for example) costs a little more as it grows. Over the 1112 drawing times of the disc 3.6 sequence, the cases more than 10 % too fast go from 17 to 14 (simulation).
+
 With vsd48, over 898 drawing times of the test discs 3.6 and 3.7, the mean gap to the FZ-10 is 6.8 % (vsd46: 7.6 %), and 80 % are within 10 % (simulation).
 
-**Also in this branch.** The light guns come after the pads in the controller chain, as with a Gamegun plugged into a pad. That is the set-up the Gamegun's documentation asks for Demolition Man. In Demolition Man, pressing the gun's calibration button during the intro freezes the game, on a real FZ-10 too.
+**Also in this branch.** The light guns come after the pads in the controller chain, as with a Gamegun plugged into a pad. That is the set-up the Gamegun's documentation asks for Demolition Man. In Demolition Man, pressing the gun's calibration button during the intro freezes the game, on a real FZ-10 too. Since vsd57, the Input page is simpler, a box can show which player each controller is, and a Sega Saturn gun works on the SNAC port: see [Gamepads and light guns](https://github.com/P2i-Lab/3DO_MiSTer/blob/feat/vram-sdram/README.md#gamepads-and-light-guns) in the README of the branch.
 
 Commits on top of `test/kit-20261114i`:
 - `12a1806`: light guns after the pads;
@@ -82,7 +85,10 @@ Commits on top of `test/kit-20261114i`:
 - `ee58651`: no game list, the DSP pauses with the console in every game (vsd49);
 - `7019f85`: console writes kept when the console stops mid-cycle (vsd50);
 - `22f0009`: pace of turned 16-bit cels (vsd50);
-- `e6e2d43`: the display list and the refresh no longer wait for a row copy (vsd53).
+- `e6e2d43`: the display list and the refresh no longer wait for a row copy (vsd53);
+- `6f5bc79`: only words of the visible part of the line become pixels (vsd54);
+- `4d78654`: two rules for turned cels (vsd55);
+- `a3cc3d4`: gamepad menu, controller box and Saturn gun (vsd57).
 
 Later versions come as new commits on top.
 
@@ -99,7 +105,7 @@ Homebrew benchmark discs (P2i Lab bench 2.3 to 3.6) measured about 2500 cel engi
 
 ### Test branches
 
-- `feat/vram-sdram`: the SDRAM core: the VRAM in the SDRAM module, the timing of narrow cels and fills from the disc 3.7 measurements, the light guns after the pads. Its test core vsd48 is on [p2i-lab.com/mister](https://p2i-lab.com/mister/).
+- `feat/vram-sdram`: the SDRAM core: the VRAM in the SDRAM module, the timing of narrow cels and fills from the disc 3.7 measurements, the light guns after the pads, the Saturn gun on the SNAC port. Its test core vsd57 is on [p2i-lab.com/mister](https://p2i-lab.com/mister/).
 - `test/kit-20261114i`: our test core with the VRAM in the DDR3, with all the core changes above except the SDRAM ones.
 - `test/mesures-20261110`: the core corrected from the first measurements (cel engine, CD drive, memory).
 - `feat/lightgun`: the 3DO light gun (control port device 0x4D), aimed with a joystick, a mouse, or PlayStation GunCons on the SNAC port. Tested with a GunCon on a CRT (Mad Dog McCree, Crime Patrol).
