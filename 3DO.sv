@@ -311,19 +311,22 @@ module emu
 		"P1O89,Vertical Crop,Disabled,216p(5x),224p;",
 	
 		"P2,Input;",
-		"P2O[34:32],Pad,1,2,3,4,Off;",
-		"D1P2O[35],Flightstick,Off,On;",
-		"D2P2O[36],Mouse,Off,On;",
-		"P2O[38:37],Arcade control,Off,Trackball;",/*,LightGun*/
-		"P2O[39],Arcade service,Off,On;",
-		"P2-;",
-		"D5P2O[41:40],Light gun,Off,1 gun,2 guns;",
-		"D3P2O[46],Gun input,MiSTer,GunCon (SNAC);",
-		"D3P2O[42],Gun 1 aim,Joy 1,Mouse;",
-		"D4P2O[43],Gun 2 aim,Joy 2,Mouse;",
-		"D3P2O[45:44],Gun crosshair,Small,Medium,Big,None;",
-		"D6P2O[52:48],GunCon X adjust (px),0,+2,+4,+6,+8,+10,+12,+14,+16,+18,+20,+22,+24,+26,+28,+30,-32,-30,-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2;",
-		"D3P2O[47],Gun sensor,Ideal,Picture;",
+		"P2O[34:32],Gamepads,1,2,3,4,None;",
+		"H5P2O[58:56],Light gun,Off,Mouse,USB gun,2 USB guns,USB gun+mouse,SNAC GunCon,2 SNAC GunCons,SNAC Saturn gun;",
+		"H3P2O[45:44],Crosshair,Small,Medium,Big,None;",
+		"H4P2O[47],Gun sensor,Ideal,Picture;",
+		"H6P2O[52:48],GunCon X adjust (px),0,+2,+4,+6,+8,+10,+12,+14,+16,+18,+20,+22,+24,+26,+28,+30,-32,-30,-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2;",
+		"HAP2O[63:59],Saturn X adjust (px),0,+2,+4,+6,+8,+10,+12,+14,+16,+18,+20,+22,+24,+26,+28,+30,-32,-30,-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2;",
+		"H1P2O[35],Flightstick,Off,On;",
+		"H2P2O[36],3DO mouse,Off,On;",
+		"H8P2O[38:37],Arcade control,Off,Trackball;",
+		"H7P2O[39],Arcade service,Off,On;",
+		"P2O[54],Show controllers,Off,On;",
+		"H4P2-;",
+		"H9P2-,Press the gamepad first.;",
+		"H4P2-,Wrong order? Go back then;",
+		"H4P2-,press Right: System page;",
+		"H4P2-,> Reset player assignment;",
 
 		"P3,Hardware;",
 		"P3OJ,Video mode,240p,480i(original);",
@@ -344,10 +347,11 @@ module emu
 	};
 
 	wire [63:0] status;
-	wire [15:0] status_menumask = {9'd0,~gun_snac,arcade_on,gun_one,gun_off,mouse_mask,stick_mask,~bk_ena};
+	wire [15:0] status_menumask = {5'd0,~gun_sat,hint_mask,~gun_off,~arcade_on,~gun_snac,arcade_on,sensor_mask,gun_off,mouse_mask,stick_mask,~bk_ena};
 	
 	wire  [1:0] buttons;
-	wire [15:0] joystick_0,joystick_1,joystick_2,joystick_3,joystick_4;
+	wire [15:0] joystick_0,joystick_1,joystick_2,joystick_3,joystick_4,joystick_5;
+	wire [15:0] joy2_a,joy3_a,joy4_a,joy5_a;	//left sticks of players 3-6 ({y, x}): a USB gun after the pads
 	wire  [7:0] joy0_x0,joy0_y0,joy0_x1,joy0_y1,joy1_x0,joy1_y0,joy1_x1,joy1_y1;
 	wire        ioctl_download;
 	wire        ioctl_wr;
@@ -387,8 +391,13 @@ module emu
 		.joystick_2(joystick_2),
 		.joystick_3(joystick_3),
 		.joystick_4(joystick_4),
+		.joystick_5(joystick_5),
 		.joystick_l_analog_0({joy0_y0, joy0_x0}),
 		.joystick_l_analog_1({joy1_y0, joy1_x0}),
+		.joystick_l_analog_2(joy2_a),
+		.joystick_l_analog_3(joy3_a),
+		.joystick_l_analog_4(joy4_a),
+		.joystick_l_analog_5(joy5_a),
 		.joystick_r_analog_0({joy0_y1, joy0_x1}),
 		.joystick_r_analog_1({joy1_y1, joy1_x1}),
 	
@@ -781,24 +790,33 @@ module emu
 	wire arcade_on = |arcade_sel;
 
 	//Light guns: in the chain after the pads (a Gamegun is plugged into a pad); the flightstick and the mouse are off with them
-	wire [1:0] gun_num = arcade_on ? 2'd0 : status[41] ? 2'd2 : {1'b0,status[40]};
+	//menu_b (2026-11-24): one option; the pads take players 1, 2... in order, a USB gun the player after the pads (gun 2 the
+	//next one), as the flightstick; the mouse is never a player. 0 off, 1 mouse, 2 USB gun, 3 2 USB guns, 4 USB gun + mouse,
+	//5 SNAC GunCon, 6 2 SNAC GunCons, 7 SNAC Saturn gun (satgun_patch)
+	wire [2:0] gun_mode = arcade_on ? 3'd0 : status[58:56];
+	wire [1:0] gun_num = gun_mode == 3'd0 ? 2'd0 : gun_mode == 3'd3 || gun_mode == 3'd4 || gun_mode == 3'd6 ? 2'd2 : 2'd1;
 	wire gun_off = gun_num == 2'd0;
-	wire gun_one = gun_num != 2'd2;
-	wire gun_snac = !gun_off && status[46];	//PlayStation GunCons on the SNAC port
-	wire gun1_joy = !gun_off && !gun_snac && !status[42];	//gun 1 aimed with joystick 1
-	wire gun2_joy = !gun_one && !gun_snac && !status[43];	//gun 2 aimed with joystick 2
+	wire gun_snac = gun_mode == 3'd5 || gun_mode == 3'd6;	//PlayStation GunCons on the SNAC port
+	wire gun_sat = gun_mode == 3'd7;	//Sega Saturn gun on the SNAC port (one: the Saturn adapter has one Saturn port)
+	wire gun1_mouse = gun_mode == 3'd1;	//gun 1 aimed with the mouse
+	wire gun2_mouse = gun_mode == 3'd4;	//gun 2 aimed with the mouse
 	wire gun_sense = status[47] && !gun_snac;	//the emulated guns see only the lit places of the picture
 	wire stick_mask = ~(pad_sel <= 3'd1 && !arcade_sel) | ~gun_off;
 	wire mouse_mask = ~(pad_sel <= 3'd2 && !arcade_sel) | ~gun_off;
+	wire sensor_mask = gun_off | gun_snac | gun_sat;	//menu: Gun sensor only for the guns the core aims
+	wire hint_mask = sensor_mask | pad_sel == 3'd0;	//menu: "Press the gamepad first." only with a pad and a mouse or USB gun
 
-	//the pads take the joysticks that do not aim a gun, in order
-	reg [12:0] pad_joy0, pad_joy1, pad_joy2, pad_joy3;
+	//the pads take players 1, 2... in order; the USB guns the players after the pads
+	wire [12:0] pad_joy0 = joystick_0[12:0], pad_joy1 = joystick_1[12:0], pad_joy2 = joystick_2[12:0], pad_joy3 = joystick_3[12:0];
+	reg  [ 7:0] gj0_x, gj0_y, gj1_x, gj1_y;	//left sticks of the players of USB guns 1 and 2
+	reg  [ 2:0] gj0_btn, gj1_btn;	//their trigger (A), reload (B), calibration (C)
 	always_comb begin
-		case ({gun2_joy,gun1_joy})
-			2'b00:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_0[12:0],joystick_1[12:0],joystick_2[12:0],joystick_3[12:0]};
-			2'b01:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_1[12:0],joystick_2[12:0],joystick_3[12:0],joystick_4[12:0]};
-			2'b10:   {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_0[12:0],joystick_2[12:0],joystick_3[12:0],joystick_4[12:0]};
-			default: {pad_joy0,pad_joy1,pad_joy2,pad_joy3} = {joystick_2[12:0],joystick_3[12:0],joystick_4[12:0],13'd0};
+		case (pad_sel)
+			3'd0:    begin {gj0_y,gj0_x} = {joy0_y0,joy0_x0}; {gj1_y,gj1_x} = {joy1_y0,joy1_x0}; gj0_btn = joystick_0[6:4]; gj1_btn = joystick_1[6:4]; end
+			3'd1:    begin {gj0_y,gj0_x} = {joy1_y0,joy1_x0}; {gj1_y,gj1_x} = joy2_a;            gj0_btn = joystick_1[6:4]; gj1_btn = joystick_2[6:4]; end
+			3'd2:    begin {gj0_y,gj0_x} = joy2_a;            {gj1_y,gj1_x} = joy3_a;            gj0_btn = joystick_2[6:4]; gj1_btn = joystick_3[6:4]; end
+			3'd3:    begin {gj0_y,gj0_x} = joy3_a;            {gj1_y,gj1_x} = joy4_a;            gj0_btn = joystick_3[6:4]; gj1_btn = joystick_4[6:4]; end
+			default: begin {gj0_y,gj0_x} = joy4_a;            {gj1_y,gj1_x} = joy5_a;            gj0_btn = joystick_4[6:4]; gj1_btn = joystick_5[6:4]; end
 		endcase
 	end
 
@@ -829,7 +847,39 @@ module emu
 	);
 	reg gc_csync;
 	always @(posedge clk_vid) gc_csync <= VGA_HS ^ VGA_VS;
-	assign USER_OUT = gun_snac ? {~gc_csync, gc_user_out} : 7'd0;
+	assign USER_OUT = gun_snac ? {~gc_csync, gc_user_out} : gun_sat ? 7'h7F : 7'd0;
+
+	//Sega Saturn gun on the SNAC port (Saturn adapter): the core notes where its beam is when the gun sees light
+	//(rtl/satgun.sv); its place goes to the 3DO gun as the picture sensor's (SENSE), its trigger is the 3DO trigger,
+	//its Start the calibration button; a shot where it sees nothing (off the screen) reloads, as with a real gun.
+	//SAT_DLY0: dots from the crosshair stage to TH low inside the core (simulator); the gun's own time is left to
+	//Saturn X adjust (2 pixels, 4 dots a step), measured on the CRT as GunCon X adjust
+	localparam [10:0] SAT_DLY0 = 11'd2;
+	wire [10:0] sat_dly = SAT_DLY0 - {{4{status[63]}}, status[63:59], 2'b00};
+	wire        sat_lit, sat_trig, sat_start;
+	wire [ 9:0] sat_x;
+	wire [ 7:0] sat_y;
+	wire [ 4:0] sat_n;
+	P3DO_SATGUN satgun
+	(
+		.CLK(clk_sys),
+		.ENABLE(gun_sat),
+		.USER_IN(USER_IN),
+		.DLY(sat_dly),
+		.LIT(sat_lit),
+		.LIT_X(sat_x),
+		.LIT_Y(sat_y),
+		.LIT_N(sat_n),
+		.TRIGGER(sat_trig),
+		.START(sat_start),
+		.PRESENT(),
+		.VCLK(clk_vid),
+		.CE_PIX(DCLK),
+		.HBL_N(HBL_N),
+		.VBL_N(VBL_N)
+	);
+	wire [ 8:0] sat_aim_y = {1'b0, sat_y} + {5'd0, sat_n[4:1]};	//aim (crosshair): the middle of the lines it saw
+	wire [ 7:0] sat_aim_y8 = sat_aim_y > 9'd239 ? 8'd239 : sat_aim_y[7:0];
 
 	//trigger A, reload (off-screen shot) B, calibration button C; mouse: left, right, middle; GunCon: trigger, B, A
 	wire [39:0] gun0_data, gun1_data;
@@ -845,25 +895,25 @@ module emu
 		.CLK(clk_sys),
 		.RST(reset),
 		.PAL(PAL),
-		.MOUSE_MODE(status[42]),
-		.EXT_MODE(gun_snac),
-		.JOY_X(joy0_x0),
-		.JOY_Y(joy0_y0),
-		.JOY_TRIGGER(joystick_0[4]),
-		.JOY_RELOAD(joystick_0[5]),
-		.JOY_CALIB(joystick_0[6]),
+		.MOUSE_MODE(gun1_mouse),
+		.EXT_MODE(gun_snac | gun_sat),
+		.JOY_X(gj0_x),
+		.JOY_Y(gj0_y),
+		.JOY_TRIGGER(gj0_btn[0]),
+		.JOY_RELOAD(gj0_btn[1]),
+		.JOY_CALIB(gj0_btn[2]),
 		.PS2_MOUSE(ps2_mouse),
-		.EXT_X(gc0_x),
-		.EXT_Y(gc0_y),
-		.EXT_ON(gc0_on),
-		.EXT_TRIGGER(gc0_btn[0]),
-		.EXT_RELOAD(gc0_btn[2]),
-		.EXT_CALIB(gc0_btn[1]),
-		.SENSE(gun_sense),
-		.LIT(gunv_lit0),
-		.LIT_X(gunv_lit0_x),
-		.LIT_Y(gunv_lit0_y),
-		.LIT_N(gunv_lit0_n),
+		.EXT_X(gun_sat ? sat_x : gc0_x),
+		.EXT_Y(gun_sat ? sat_aim_y8 : gc0_y),
+		.EXT_ON(gun_sat ? sat_lit : gc0_on),
+		.EXT_TRIGGER(gun_sat ? sat_trig : gc0_btn[0]),
+		.EXT_RELOAD(gun_sat ? 1'b0 : gc0_btn[2]),
+		.EXT_CALIB(gun_sat ? sat_start : gc0_btn[1]),
+		.SENSE(gun_sense | gun_sat),
+		.LIT(gun_sat ? sat_lit : gunv_lit0),
+		.LIT_X(gun_sat ? sat_x : gunv_lit0_x),
+		.LIT_Y(gun_sat ? sat_y : gunv_lit0_y),
+		.LIT_N(gun_sat ? sat_n : gunv_lit0_n),
 		.DATA(gun0_data),
 		.AIM_X(gun0_x),
 		.AIM_Y(gun0_y),
@@ -874,13 +924,13 @@ module emu
 		.CLK(clk_sys),
 		.RST(reset),
 		.PAL(PAL),
-		.MOUSE_MODE(status[43]),
+		.MOUSE_MODE(gun2_mouse),
 		.EXT_MODE(gun_snac),
-		.JOY_X(joy1_x0),
-		.JOY_Y(joy1_y0),
-		.JOY_TRIGGER(joystick_1[4]),
-		.JOY_RELOAD(joystick_1[5]),
-		.JOY_CALIB(joystick_1[6]),
+		.JOY_X(gj1_x),
+		.JOY_Y(gj1_y),
+		.JOY_TRIGGER(gj1_btn[0]),
+		.JOY_RELOAD(gj1_btn[1]),
+		.JOY_CALIB(gj1_btn[2]),
 		.PS2_MOUSE(ps2_mouse),
 		.EXT_X(gc1_x),
 		.EXT_Y(gc1_y),
@@ -1476,6 +1526,34 @@ module emu
 		.RGB_OUT(gun_rgb)
 	);
 
+	//Input > Show controllers: what each MiSTer player, the mouse and the SNAC GunCons do in the 3DO (menu_b)
+	wire [23:0] ctrl_rgb;
+	P3DO_CTRL_INFO ctrl_info
+	(
+		.CLK(clk_sys),
+		.ENABLE(status[54]),
+		.PADS(pad_sel),
+		.GUN_MODE(gun_mode),
+		.STICK(status[35] & ~stick_mask),
+		.MOUSE3DO(status[36] & ~mouse_mask),
+		.ARCADE(arcade_on),
+		.JOY0(joystick_0[12:0]),
+		.JOY1(joystick_1[12:0]),
+		.JOY2(joystick_2[12:0]),
+		.JOY3(joystick_3[12:0]),
+		.JOY4(joystick_4[12:0]),
+		.JOY5(joystick_5[12:0]),
+		.PS2_MOUSE(ps2_mouse),
+		.SNAC_BTN(gun_sat ? {4'd0, sat_start, sat_trig} : {gc1_btn, gc0_btn}),
+		.VBL_N(VBL_N),
+
+		.VCLK(clk_vid),
+		.CE_PIX(DCLK),
+		.HBL_N(HBL_N),
+		.RGB_IN(gun_rgb),
+		.RGB_OUT(ctrl_rgb)
+	);
+
 	wire vga_de;
 	video_mixer #(.LINE_LENGTH(8), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
 	(
@@ -1488,9 +1566,9 @@ module emu
 	
 		.VGA_DE(vga_de),
 
-		.R(gun_rgb[23:16]),
-		.G(gun_rgb[15: 8]),
-		.B(gun_rgb[ 7: 0]),
+		.R(ctrl_rgb[23:16]),
+		.G(ctrl_rgb[15: 8]),
+		.B(ctrl_rgb[ 7: 0]),
 	
 		// Positive pulses.
 		.HSync(~HS_N),
